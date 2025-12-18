@@ -1,187 +1,136 @@
-# Booking System (Test Assignment) — Starter
+# Booking System (Day 2+)
 
-This is the **starter ZIP** for the Booking System test assignment.
+This repo is a small demo booking system:
+- Roles: **CLIENT** and **BUSINESS**
+- Auth: email/password -> HttpOnly cookie `bs_token`
+- Appointments: create / list / reschedule / cancel
+- **Availability + Free slots (Day 3)**: BUSINESS defines working hours & breaks; CLIENT books from a list of free slots
 
-## Stack (chosen for a clean classic delivery in 3 days)
-- Next.js (App Router) + TypeScript
-- PostgreSQL (production: **Neon**; local: Docker Postgres)
-- Prisma ORM
-- Zod validation
-- JWT in **httpOnly cookie** (implemented)
+## Quick start (3 minutes)
 
-## Why Neon for DB deploy
-Neon is a serverless Postgres that works well with Vercel and gives you a clean `DATABASE_URL`.
-For local development we use Docker Postgres (optional).
+1) Install dependencies
 
-## 1) Local run (recommended)
-### Requirements
-- Node.js 18+ (better 20+)
-- npm/pnpm (your choice)
-- Docker (optional, for local Postgres)
-
-### Install
 ```bash
 npm i
-# or: pnpm i
 ```
 
-### Environment
-Copy and fill env:
+2) Configure env
+
+Create `.env` (or `.env.local`) with your Postgres connection:
+
 ```bash
-cp .env.example .env
+DATABASE_URL=postgresql://user:pass@localhost:5432/booking_system?schema=public
+DIRECT_URL=postgresql://user:pass@localhost:5432/booking_system?schema=public
+JWT_SECRET=dev-secret-change-me
 ```
 
-For Neon we recommend two URLs:
-- `DATABASE_URL` (pooled; host contains `-pooler`) for app runtime
-- `DIRECT_URL` (direct; host without `-pooler`) for Prisma migrations
+3) Apply migrations + seed
 
-### Start local Postgres (optional)
 ```bash
-docker compose up -d
+npx prisma migrate dev
+npx prisma db seed
 ```
 
-### Prisma (first time)
-```bash
-npm run prisma:generate
-npm run prisma:migrate:dev
-npm run seed
-```
+4) Run dev server
 
-### Run dev server
 ```bash
 npm run dev
 ```
 
 Open: http://localhost:3000
 
-## 1.1) Run in 3 minutes (copy/paste)
+---
 
-```bash
-# 1) install
-npm i
+## Demo users
 
-# 2) env (fill DATABASE_URL / DIRECT_URL / JWT_SECRET)
-cp .env.example .env
+Seed creates:
 
-# 3) DB schema + Prisma client
-npm run prisma:migrate:dev
-
-# 4) seed demo users
-npm run seed
-
-# 5) start
-npm run dev
-```
-
-Then open:
-- http://localhost:3000/businesses (CLIENT UI: browse businesses + book)
-- http://localhost:3000/appointments (My appointments UI)
-
-## 2) API smoke tests with curl (Git Bash)
-
-Tip: in Git Bash use single quotes around JSON to avoid `!` history expansion issues.
-
-### 2.1 Sign in as CLIENT
-
-```bash
-curl -i -c cookies.txt -X POST http://localhost:3000/api/auth/sign-in \
-  -H 'Content-Type: application/json' \
-  --data-raw '{"email":"client1@example.com","password":"Password123!"}'
-
-curl -i -b cookies.txt http://localhost:3000/api/auth/me
-```
-
-List businesses:
-
-```bash
-curl -i -b cookies.txt "http://localhost:3000/api/users?role=BUSINESS"
-```
-
-Create appointment (replace BUSINESS_ID):
-
-```bash
-curl -i -b cookies.txt -X POST http://localhost:3000/api/appointments \
-  -H 'Content-Type: application/json' \
-  --data-raw '{"businessId":"BUSINESS_ID","startAt":"2026-02-01T10:00:00.000Z","durationMin":30}'
-```
-
-List my appointments:
-
-```bash
-curl -i -b cookies.txt http://localhost:3000/api/appointments/me
-```
-
-Cancel appointment (replace APPOINTMENT_ID):
-
-```bash
-curl -i -b cookies.txt -X POST \
-  "http://localhost:3000/api/appointments/APPOINTMENT_ID/cancel"
-```
-
-Reschedule (only BOOKED):
-
-```bash
-curl -i -b cookies.txt -X PATCH \
-  "http://localhost:3000/api/appointments/APPOINTMENT_ID" \
-  -H 'Content-Type: application/json' \
-  --data-raw '{"startAt":"2026-02-01T12:00:00.000Z","durationMin":45}'
-```
-
-### 2.2 Sign in as BUSINESS and cancel appointments for your business
-
-```bash
-curl -i -c bizcookies.txt -X POST http://localhost:3000/api/auth/sign-in \
-  -H 'Content-Type: application/json' \
-  --data-raw '{"email":"biz2@example.com","password":"Password123!"}'
-
-curl -i -b bizcookies.txt http://localhost:3000/api/appointments/me
-
-# pick an appointment id from the response and cancel it
-curl -i -b bizcookies.txt -X POST \
-  "http://localhost:3000/api/appointments/APPOINTMENT_ID/cancel"
-```
-
-## 3) Production deploy (DB + app)
-1. Create a Neon database, copy `DATABASE_URL`
-2. Deploy on Vercel
-3. Set env vars in Vercel:
-   - `DATABASE_URL`
-   - `DIRECT_URL`
-   - `JWT_SECRET`
-
-## Assumptions we will document in README (next)
-- Time stored in UTC (timestamp)
-- No overlap allowed for the same business when status=BOOKED
-- durationMin allowed range: 15..240
+- CLIENT: `client1@example.com` / `Password123!`
+- BUSINESS: `biz2@example.com` / `Password123!`
 
 ---
 
+## Curl cookbook
 
-## Day 1 (implemented): API v0
-### Auth
-- `POST /api/auth/sign-up` { name, email, password, role }
-- `POST /api/auth/sign-in` { email, password } -> sets httpOnly cookie `bs_token`
-- `POST /api/auth/sign-out`
-- `GET /api/auth/me`
+### 1) Sign in (CLIENT)
 
-### Users (requires auth)
-- `GET /api/users?role=BUSINESS`
-- `POST /api/users`
-- `GET /api/users/:id`
-- `PATCH /api/users/:id`
-- `DELETE /api/users/:id`
+```bash
+curl -i -c cookies.txt -X POST http://localhost:3000/api/auth/sign-in \
+  -H "Content-Type: application/json" \
+  --data-raw '{"email":"client1@example.com","password":"Password123!"}'
+```
 
-### Appointments (requires auth)
-- `POST /api/appointments` (CLIENT only)
-- `GET /api/appointments/me`
-- `PATCH /api/appointments/:id` (CLIENT owner only)
-- `POST /api/appointments/:id/cancel` (CLIENT owner only OR BUSINESS owner)
+### 2) List businesses
 
-### Notes / assumptions
-- Time stored as UTC timestamps
-- Overlap prevented per business for status=BOOKED (returns 409 CONFLICT)
+```bash
+curl -i -b cookies.txt http://localhost:3000/api/businesses
+```
 
-## Day 2 (UI): pages
-- `/sign-in` and `/sign-up`
-- `/businesses` — list businesses + create appointment
-- `/appointments` — my appointments + reschedule/cancel
+### 3) Get free slots for a day
+
+```bash
+# example: get slots for 2026-02-01 (duration 30)
+curl -i -b cookies.txt \
+  "http://localhost:3000/api/availability/slots?businessId=<BUSINESS_ID>&from=2026-02-01T00:00:00.000Z&to=2026-02-02T00:00:00.000Z&durationMin=30"
+```
+
+### 4) Book a slot (CLIENT)
+
+```bash
+curl -i -b cookies.txt -X POST http://localhost:3000/api/appointments \
+  -H "Content-Type: application/json" \
+  --data-raw '{"businessId":"<BUSINESS_ID>","startAt":"2026-02-01T10:00:00.000Z","durationMin":30}'
+```
+
+### 5) Reschedule (CLIENT)
+
+```bash
+curl -i -b cookies.txt -X PATCH "http://localhost:3000/api/appointments/<APPOINTMENT_ID>" \
+  -H "Content-Type: application/json" \
+  --data-raw '{"startAt":"2026-02-01T11:00:00.000Z","durationMin":45}'
+```
+
+### 6) Cancel (CLIENT)
+
+```bash
+curl -i -b cookies.txt -X POST "http://localhost:3000/api/appointments/<APPOINTMENT_ID>/cancel"
+```
+
+---
+
+## Availability (BUSINESS)
+
+### Sign in (BUSINESS)
+
+```bash
+curl -i -c bizcookies.txt -X POST http://localhost:3000/api/auth/sign-in \
+  -H "Content-Type: application/json" \
+  --data-raw '{"email":"biz2@example.com","password":"Password123!"}'
+```
+
+### Get current availability
+
+```bash
+curl -i -b bizcookies.txt http://localhost:3000/api/availability/me
+```
+
+### Update availability
+
+```bash
+curl -i -b bizcookies.txt -X PUT http://localhost:3000/api/availability/me \
+  -H "Content-Type: application/json" \
+  --data-raw '{
+    "slotStepMin": 15,
+    "days": [
+      {"dayOfWeek": 1, "start": "09:00", "end": "17:00", "breaks": [{"start": "13:00", "end": "14:00"}]},
+      {"dayOfWeek": 2, "start": "09:00", "end": "17:00", "breaks": [{"start": "13:00", "end": "14:00"}]}
+    ]
+  }'
+```
+
+---
+
+## Notes
+
+- Slots are generated from BUSINESS working hours and breaks, and exclude already **BOOKED** appointments.
+- Server still enforces conflicts and will return **409** in case of a race (another appointment booked the slot).

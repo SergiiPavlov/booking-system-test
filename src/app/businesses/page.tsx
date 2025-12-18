@@ -1,213 +1,197 @@
 "use client";
 
-import { api, toIsoUtcFromLocalDateTime } from "@/lib/client/api";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import {
+  createAppointment,
+  getBusinesses,
+  getFreeSlots,
+  type ApiErrorResponse
+} from "@/lib/client/api";
 
-type UserRole = "CLIENT" | "BUSINESS";
+type Business = { id: string; name: string; email: string };
 
-type MeResponse = {
-  user: { id: string; name: string; email: string; role: UserRole };
-};
+function isoToLocalTimeLabel(iso: string) {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
 
-type Business = {
-  id: string;
-  name: string;
-  email: string;
-};
+function buildDayRange(date: string) {
+  // date = YYYY-MM-DD (local)
+  const from = new Date(`${date}T00:00:00`);
+  const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
 
-type ListBusinessesResponse = { users: Business[] };
+function BusinessCard({ b }: { b: Business }) {
+  const today = useMemo(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
 
-type CreateAppointmentResponse = {
-  appointment: {
-    id: string;
-    clientId: string;
-    businessId: string;
-    startAt: string;
-    durationMin: number;
-    status: "BOOKED" | "CANCELED";
-    createdAt: string;
-    updatedAt: string;
+  const [date, setDate] = useState(today);
+  const [durationMin, setDurationMin] = useState(30);
+  const [loading, setLoading] = useState(false);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const loadSlots = async () => {
+    setSuccess(null);
+    setErr(null);
+    setChosen(null);
+    setLoading(true);
+    try {
+      const { from, to } = buildDayRange(date);
+      const res = await getFreeSlots({
+        businessId: b.id,
+        from,
+        to,
+        durationMin
+      });
+      setSlots(res.slots);
+    } catch (e: any) {
+      const body = e as ApiErrorResponse;
+      setErr(body?.error?.message ?? "Failed to load slots");
+      setSlots([]);
+    } finally {
+      setLoading(false);
+    }
   };
-};
 
-export default function BusinessesPage() {
-  const router = useRouter();
-
-  const [me, setMe] = useState<MeResponse["user"] | null>(null);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const canBook = useMemo(() => me?.role === "CLIENT", [me]);
+  const book = async () => {
+    if (!chosen) return;
+    setErr(null);
+    setSuccess(null);
+    try {
+      await createAppointment({
+        businessId: b.id,
+        startAt: chosen,
+        durationMin
+      });
+      setSuccess(`Booked for ${date} at ${isoToLocalTimeLabel(chosen)}`);
+      // refresh slots to reflect conflicts
+      await loadSlots();
+    } catch (e: any) {
+      const body = e as ApiErrorResponse;
+      setErr(body?.error?.message ?? "Booking failed");
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const meRes = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!meRes.ok) {
-          router.replace(`/sign-in?next=${encodeURIComponent("/businesses")}`);
-          return;
-        }
-        const meData = (await meRes.json()) as MeResponse;
-        if (!mounted) return;
-        setMe(meData.user);
-
-        const list = await api<ListBusinessesResponse>("/api/users?role=BUSINESS");
-        if (!mounted) return;
-        setBusinesses(list.users);
-      } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Failed to load businesses");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [router]);
-
-  async function onBook(businessId: string, localStart: string, durationMin: number) {
-    const startAt = toIsoUtcFromLocalDateTime(localStart);
-    return api<CreateAppointmentResponse>("/api/appointments", {
-      method: "POST",
-      body: JSON.stringify({ businessId, startAt, durationMin })
-    });
-  }
-
-  if (loading) {
-    return <div className="text-gray-400">Loading…</div>;
-  }
+    // First load for convenience
+    loadSlots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="grid gap-6">
-      <section className="rounded-2xl border border-gray-800 bg-gray-900/30 p-5">
-        <h2 className="text-lg font-semibold">Businesses</h2>
-        <p className="mt-1 text-sm text-gray-400">
-          Choose a business and create an appointment. Times are submitted as UTC (we convert from your local time).
-        </p>
+    <div className="border rounded p-4 flex flex-col gap-3">
+      <div>
+        <div className="font-semibold">{b.name}</div>
+        <div className="text-sm text-gray-600">{b.email}</div>
+      </div>
 
-        {me ? (
-          <div className="mt-3 text-sm text-gray-300">
-            Signed in as: <span className="font-semibold">{me.name}</span> ({me.role})
+      <div className="flex flex-wrap gap-2 items-end">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-gray-600">Date</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="border rounded px-2 py-1"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-gray-600">Duration (min)</span>
+          <input
+            type="number"
+            min={15}
+            max={240}
+            step={15}
+            value={durationMin}
+            onChange={(e) => setDurationMin(Number(e.target.value))}
+            className="border rounded px-2 py-1 w-32"
+          />
+        </label>
+
+        <button
+          onClick={loadSlots}
+          disabled={loading}
+          className="px-3 py-2 rounded bg-black text-white disabled:opacity-60"
+        >
+          {loading ? "Loading..." : "Load slots"}
+        </button>
+
+        <button
+          onClick={book}
+          disabled={!chosen}
+          className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-60"
+        >
+          Book selected
+        </button>
+      </div>
+
+      {err && <div className="text-sm text-red-600">{err}</div>}
+      {success && <div className="text-sm text-emerald-700">{success}</div>}
+
+      <div className="flex flex-wrap gap-2">
+        {slots.length === 0 && !loading ? (
+          <div className="text-sm text-gray-600">
+            No free slots for this day.
           </div>
         ) : null}
 
-        {!canBook ? (
-          <div className="mt-3 rounded-xl border border-amber-900 bg-amber-950/20 p-3 text-sm text-amber-200">
-            You are signed in as BUSINESS. Only CLIENT users can create appointments.
-          </div>
-        ) : null}
-
-        {error ? <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</div> : null}
-      </section>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {businesses.map((b) => (
-          <BusinessCard key={b.id} business={b} canBook={canBook} onBook={onBook} />
+        {slots.map((s) => (
+          <button
+            key={s}
+            onClick={() => setChosen(s)}
+            className={`px-3 py-2 rounded border text-sm ${
+              chosen === s ? "bg-black text-white" : "bg-white"
+            }`}
+            title={s}
+          >
+            {isoToLocalTimeLabel(s)}
+          </button>
         ))}
+      </div>
+
+      <div className="text-xs text-gray-500">
+        Slots are generated from business availability and exclude already BOOKED
+        appointments. Final conflict check still happens on the server (409).
       </div>
     </div>
   );
 }
 
-function BusinessCard({
-  business,
-  canBook,
-  onBook
-}: {
-  business: { id: string; name: string; email: string };
-  canBook: boolean;
-  onBook: (businessId: string, localStart: string, durationMin: number) => Promise<CreateAppointmentResponse>;
-}) {
-  const router = useRouter();
-  const [localStart, setLocalStart] = useState("");
-  const [durationMin, setDurationMin] = useState(60);
-  const [status, setStatus] = useState<{ type: "ok" | "err"; message: string } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+export default function BusinessesPage() {
+  const [items, setItems] = useState<Business[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus(null);
-    setSubmitting(true);
-    try {
-      const res = await onBook(business.id, localStart, durationMin);
-      setStatus({ type: "ok", message: `Booked. Appointment ID: ${res.appointment.id}` });
-      setLocalStart("");
-      router.refresh();
-    } catch (err) {
-      setStatus({ type: "err", message: err instanceof Error ? err.message : "Booking failed" });
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  useEffect(() => {
+    getBusinesses()
+      .then((data) => setItems(((data as any).users as Business[]) ?? []))
+      .catch((e: any) => {
+        const body = e as ApiErrorResponse;
+        setError(body?.error?.message ?? "Failed to load businesses");
+      });
+  }, []);
 
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/20 p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-base font-semibold">{business.name}</div>
-          <div className="mt-1 text-sm text-gray-400">{business.email}</div>
-        </div>
-        <span className="rounded-full border border-gray-700 px-2 py-1 text-xs text-gray-300">BUSINESS</span>
+    <main className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Businesses</h1>
+      {error && <div className="text-red-600 mb-4">{error}</div>}
+
+      <div className="grid gap-4">
+        {items.map((b) => (
+          <BusinessCard key={b.id} b={b} />
+        ))}
       </div>
-
-      <div className="mt-3 text-xs text-gray-500">ID: {business.id}</div>
-
-      {canBook ? (
-        <form onSubmit={submit} className="mt-4 grid gap-3">
-          <label className="grid gap-2">
-            <span className="text-sm text-gray-300">Start time</span>
-            <input
-              value={localStart}
-              onChange={(e) => setLocalStart(e.target.value)}
-              type="datetime-local"
-              className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-600"
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm text-gray-300">Duration (minutes)</span>
-            <select
-              value={durationMin}
-              onChange={(e) => setDurationMin(Number(e.target.value))}
-              className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-600"
-            >
-              {[15, 30, 45, 60, 90, 120, 180, 240].map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {status ? (
-            <div
-              className={
-                status.type === "ok"
-                  ? "rounded-xl border border-emerald-900 bg-emerald-950/20 p-3 text-sm text-emerald-200"
-                  : "rounded-xl border border-red-900 bg-red-950/40 p-3 text-sm text-red-200"
-              }
-            >
-              {status.message}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {submitting ? "Booking…" : "Book"}
-          </button>
-        </form>
-      ) : (
-        <div className="mt-4 text-sm text-gray-500">Sign in as CLIENT to book.</div>
-      )}
-    </div>
+    </main>
   );
 }

@@ -1,88 +1,227 @@
-export function toLocalInputValue(iso: string): string {
-  const d = new Date(iso);
-  // yyyy-MM-ddTHH:mm for datetime-local
+/**
+ * Client-side API helpers for calling Next.js route handlers.
+ * Keep this file browser-safe (no server-only imports).
+ */
+
+export type ApiErrorShape = {
+  error: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+};
+
+// Backward-compatible alias (older pages imported ApiErrorResponse)
+export type ApiErrorResponse = ApiErrorShape;
+
+export type UserRole = "CLIENT" | "BUSINESS" | "ADMIN";
+
+export type UserDto = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AppointmentStatus = "BOOKED" | "CANCELED";
+
+export type AppointmentDto = {
+  id: string;
+  clientId: string;
+  businessId: string;
+  startAt: string; // ISO UTC
+  durationMin: number;
+  status: AppointmentStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  client?: Pick<UserDto, "id" | "name" | "email">;
+  business?: Pick<UserDto, "id" | "name" | "email">;
+};
+
+export type BusinessAvailabilityDto = {
+  // ISO weekday numbers: 1=Mon ... 7=Sun
+  weekdays: {
+    day: number;
+    start: string; // "HH:mm"
+    end: string;   // "HH:mm"
+    breaks?: { start: string; end: string }[];
+  }[];
+  slotStepMin: number; // e.g. 15
+};
+
+async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+    // Cookies are HttpOnly; browser will send them automatically.
+    credentials: "include",
+  });
+
+  // Try to parse JSON body for both ok/non-ok
+  const text = await res.text();
+  const json = text ? (JSON.parse(text) as any) : null;
+
+  if (!res.ok) {
+    if (json?.error) throw json as ApiErrorShape;
+    throw {
+      error: { code: "HTTP_ERROR", message: `HTTP ${res.status}`, details: json },
+    } as ApiErrorShape;
+  }
+
+  return json as T;
+}
+
+/** Convert <input type="datetime-local"> value (local time) -> ISO UTC string */
+export function toIsoUtcFromLocalDateTime(localValue: string): string {
+  // localValue: "YYYY-MM-DDTHH:mm"
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(localValue);
+  if (!m) throw new Error("Invalid local datetime value");
+  const [_, yy, mo, dd, hh, mm] = m;
+  const d = new Date(
+    Number(yy),
+    Number(mo) - 1,
+    Number(dd),
+    Number(hh),
+    Number(mm),
+    0,
+    0
+  );
+  return d.toISOString();
+}
+
+/** Convert ISO UTC -> value for <input type="datetime-local"> (local time) */
+export function toLocalInputValue(isoUtc: string): string {
+  const d = new Date(isoUtc);
   const pad = (n: number) => String(n).padStart(2, "0");
   const yyyy = d.getFullYear();
   const mm = pad(d.getMonth() + 1);
   const dd = pad(d.getDate());
   const hh = pad(d.getHours());
-  const min = pad(d.getMinutes());
-  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+  const mi = pad(d.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
-export function toIsoUtcFromLocalDateTime(local: string): string {
-  // local like yyyy-MM-ddTHH:mm, interpret as local timezone and return ISO UTC
-  const d = new Date(local);
-  return d.toISOString();
+export function formatLocal(isoUtc: string): string {
+  const d = new Date(isoUtc);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
 }
 
-export function formatLocal(iso: string): string {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(d);
-}
+/* ----------------------------- Auth ----------------------------- */
 
-type ApiErrorShape = {
-  error?: {
-    code?: string;
-    message?: string;
-    details?: any;
-  };
-};
-
-function formatApiError(payload: ApiErrorShape): string {
-  const err = payload?.error;
-  if (!err) return "Request failed";
-
-  const parts: string[] = [];
-  if (err.code) parts.push(err.code);
-  if (err.message) parts.push(err.message);
-
-  const details = err.details;
-  // Expected validation error shape: { formErrors: string[], fieldErrors: Record<string, string[]> }
-  if (details && typeof details === "object") {
-    if (details.fieldErrors && typeof details.fieldErrors === "object") {
-      const fieldLines = Object.entries(details.fieldErrors)
-        .flatMap(([field, msgs]) => (Array.isArray(msgs) ? msgs.map((m) => `${field}: ${m}`) : []))
-        .filter(Boolean);
-      if (fieldLines.length) parts.push(fieldLines.join("; "));
-    }
-    if (Array.isArray(details.formErrors) && details.formErrors.length) {
-      parts.push(details.formErrors.join("; "));
-    }
-  }
-
-  return parts.join(" — ") || "Request failed";
-}
-
-export async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {})
-    }
+export async function signIn(input: { email: string; password: string }) {
+  return apiFetch<{ user: UserDto }>("/api/auth/sign-in", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
-
-  if (!res.ok) {
-    let text = "";
-    try {
-      const json = (await res.json()) as ApiErrorShape;
-      text = formatApiError(json);
-    } catch {
-      try {
-        text = await res.text();
-      } catch {
-        text = "Request failed";
-      }
-    }
-    throw new Error(text);
-  }
-
-  return (await res.json()) as T;
 }
+
+export async function signOut() {
+  return apiFetch<{ ok: true }>("/api/auth/sign-out", { method: "POST" });
+}
+
+export async function getMe() {
+  return apiFetch<{ user: UserDto }>("/api/auth/me");
+}
+
+/* --------------------------- Directory -------------------------- */
+
+export async function getBusinesses() {
+  // Route returns { users: [...] }
+  return apiFetch<{ users: UserDto[] }>("/api/users?role=BUSINESS");
+}
+
+/* -------------------------- Appointments ------------------------- */
+
+export async function createAppointment(input: {
+  businessId: string;
+  startAt: string; // ISO UTC
+  durationMin: number;
+}) {
+  return apiFetch<{ appointment: AppointmentDto }>("/api/appointments", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listMyAppointments() {
+  return apiFetch<{ appointments: AppointmentDto[] }>("/api/appointments/me");
+}
+
+export async function cancelAppointment(id: string) {
+  return apiFetch<{ appointment: Partial<AppointmentDto> }>(
+    `/api/appointments/${id}/cancel`,
+    { method: "POST" }
+  );
+}
+
+export async function rescheduleAppointment(
+  id: string,
+  input: { startAt: string; durationMin: number }
+) {
+  return apiFetch<{ appointment: Partial<AppointmentDto> }>(
+    `/api/appointments/${id}`,
+    { method: "PATCH", body: JSON.stringify(input) }
+  );
+}
+
+/* -------------------------- Availability ------------------------- */
+
+export async function getAvailabilityMe() {
+  return apiFetch<{ availability: BusinessAvailabilityDto | null }>(
+    "/api/availability/me"
+  );
+}
+
+export async function updateAvailabilityMe(input: BusinessAvailabilityDto) {
+  return apiFetch<{ availability: BusinessAvailabilityDto }>(
+    "/api/availability/me",
+    { method: "PUT", body: JSON.stringify(input) }
+  );
+}
+
+export async function getFreeSlots(params: {
+  businessId: string;
+  from: string; // ISO UTC
+  to: string;   // ISO UTC
+  durationMin: number;
+}) {
+  const q = new URLSearchParams({
+    businessId: params.businessId,
+    from: params.from,
+    to: params.to,
+    durationMin: String(params.durationMin),
+  });
+  return apiFetch<{ slots: { startAt: string; endAt: string }[] }>(
+    `/api/availability/slots?${q.toString()}`
+  );
+}
+
+/**
+ * Convenience object for pages/components that prefer `api.*` namespace.
+ * This is intentionally redundant to keep imports stable.
+ */
+export async function api<T>(input: string, init?: RequestInit): Promise<T> {
+  return apiFetch<T>(input, init);
+}
+
+export const clientApi = {
+  signIn,
+  signOut,
+  getMe,
+  getBusinesses,
+  createAppointment,
+  listMyAppointments,
+  cancelAppointment,
+  rescheduleAppointment,
+  getAvailabilityMe,
+  updateAvailabilityMe,
+  getFreeSlots,
+};
