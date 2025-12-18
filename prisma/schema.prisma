@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+enum UserRole {
+  CLIENT
+  BUSINESS
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CANCELED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  role         UserRole
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clientAppointments   Appointment[] @relation("ClientAppointments")
+  businessAppointments Appointment[] @relation("BusinessAppointments")
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  clientId    String
+  businessId  String
+  startAt     DateTime
+  durationMin Int
+  status      AppointmentStatus @default(BOOKED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  client   User @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  business User @relation("BusinessAppointments", fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, startAt])
+  @@index([clientId, startAt])
+}

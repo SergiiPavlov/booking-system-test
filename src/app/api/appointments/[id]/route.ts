@@ -1,0 +1,27 @@
+import { requireAuth } from "@/lib/auth/requireAuth";
+import { jsonError, jsonOk, validationError } from "@/lib/http/response";
+import { rescheduleAppointmentSchema } from "@/lib/validation/appointments";
+import { rescheduleAppointment } from "@/lib/services/appointments.service";
+
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = requireAuth();
+    const { id } = await ctx.params;
+
+    const body = await req.json();
+    const parsed = rescheduleAppointmentSchema.safeParse(body);
+    if (!parsed.success) throw validationError(parsed.error.flatten());
+
+    const appointment = await rescheduleAppointment({
+      appointmentId: id,
+      actorUserId: auth.userId,
+      actorRole: auth.role,
+      startAt: parsed.data.startAt,
+      durationMin: parsed.data.durationMin
+    });
+
+    return jsonOk({ appointment });
+  } catch (e) {
+    return jsonError(e);
+  }
+}
