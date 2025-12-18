@@ -17,8 +17,10 @@ export function signToken(payload: JwtPayload): string {
 
 export function verifyToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, getSecret(), { algorithms: ["HS256"] });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p = decoded as any;
-  if (!p?.userId || !p?.role) throw new Error("Invalid token payload");
-  return { userId: String(p.userId), role: p.role === "BUSINESS" ? "BUSINESS" : "CLIENT" };
+  const payload = decoded as jwt.JwtPayload;
+  if (!payload?.userId || !payload?.role) throw new Error("Invalid token payload");
+  return {
+    userId: String(payload.userId),
+    role: payload.role === "BUSINESS" ? "BUSINESS" : "CLIENT"
+  };
 }

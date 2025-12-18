@@ -17,13 +17,6 @@ function isoToLocalTimeLabel(iso: string) {
   return `${hh}:${mm}`;
 }
 
-function buildDayRange(date: string) {
-  // date = YYYY-MM-DD (local)
-  const from = new Date(`${date}T00:00:00`);
-  const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
-  return { from: from.toISOString(), to: to.toISOString() };
-}
-
 function BusinessCard({ b }: { b: Business }) {
   const today = useMemo(() => {
     const d = new Date();
@@ -47,11 +40,9 @@ function BusinessCard({ b }: { b: Business }) {
     setChosen(null);
     setLoading(true);
     try {
-      const { from, to } = buildDayRange(date);
       const res = await getFreeSlots({
         businessId: b.id,
-        from,
-        to,
+        date,
         durationMin
       });
       setSlots(res.slots);

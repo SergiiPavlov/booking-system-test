@@ -25,6 +25,9 @@ export const PutAvailabilitySchema = z.object({
   days: z.array(AvailabilityDaySchema).min(1)
 });
 
+export const AvailabilitySchema = PutAvailabilitySchema;
+export const AvailabilityUpsertSchema = AvailabilitySchema;
+
 export const GetSlotsQuerySchema = z.object({
   businessId: z.string().uuid(),
   from: z.string().datetime(),
@@ -32,4 +35,10 @@ export const GetSlotsQuerySchema = z.object({
   durationMin: z.coerce.number().int().min(15).max(24 * 60),
   // optional step override for client requests; server will clamp to sane values
   slotStepMin: z.coerce.number().int().min(5).max(120).optional()
+});
+
+export const AvailabilitySlotsQuerySchema = z.object({
+  businessId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  durationMin: z.coerce.number().int().min(15).max(480)
 });

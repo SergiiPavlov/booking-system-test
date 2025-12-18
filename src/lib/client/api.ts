@@ -41,14 +41,26 @@ export type AppointmentDto = {
 };
 
 export type BusinessAvailabilityDto = {
-  // ISO weekday numbers: 1=Mon ... 7=Sun
-  weekdays: {
-    day: number;
-    start: string; // "HH:mm"
-    end: string;   // "HH:mm"
-    breaks?: { start: string; end: string }[];
+  slotStepMin: number;
+  days: {
+    dayOfWeek: number; // 0=Sun ... 6=Sat (UTC)
+    startMin: number;
+    endMin: number;
+    breaks?: { startMin: number; endMin: number }[];
   }[];
-  slotStepMin: number; // e.g. 15
+};
+
+export type AvailabilityDayInput = {
+  dayOfWeek: number;
+  enabled: boolean;
+  start?: string;
+  end?: string;
+  breaks?: { start: string; end: string }[];
+};
+
+export type AvailabilityUpsertInput = {
+  slotStepMin: number;
+  days: AvailabilityDayInput[];
 };
 
 async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
@@ -175,33 +187,23 @@ export async function rescheduleAppointment(
 /* -------------------------- Availability ------------------------- */
 
 export async function getAvailabilityMe() {
-  return apiFetch<{ availability: BusinessAvailabilityDto | null }>(
-    "/api/availability/me"
-  );
+  return apiFetch<{ availability: BusinessAvailabilityDto | null }>("/api/availability/me");
 }
 
-export async function updateAvailabilityMe(input: BusinessAvailabilityDto) {
-  return apiFetch<{ availability: BusinessAvailabilityDto }>(
-    "/api/availability/me",
-    { method: "PUT", body: JSON.stringify(input) }
-  );
+export async function updateAvailabilityMe(input: AvailabilityUpsertInput) {
+  return apiFetch<{ availability: BusinessAvailabilityDto }>("/api/availability/me", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 }
 
-export async function getFreeSlots(params: {
-  businessId: string;
-  from: string; // ISO UTC
-  to: string;   // ISO UTC
-  durationMin: number;
-}) {
+export async function getFreeSlots(params: { businessId: string; date: string; durationMin: number }) {
   const q = new URLSearchParams({
     businessId: params.businessId,
-    from: params.from,
-    to: params.to,
+    date: params.date,
     durationMin: String(params.durationMin),
   });
-  return apiFetch<{ slots: { startAt: string; endAt: string }[] }>(
-    `/api/availability/slots?${q.toString()}`
-  );
+  return apiFetch<{ slots: string[] }>(`/api/availability/slots?${q.toString()}`);
 }
 
 /**

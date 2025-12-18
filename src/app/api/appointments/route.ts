@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const appt = await createAppointment({
       clientId: auth.userId,
       businessId: parsed.data.businessId,
-      startAt: parsed.data.startAt,
+      startAt: new Date(parsed.data.startAt),
       durationMin: parsed.data.durationMin
     });
 

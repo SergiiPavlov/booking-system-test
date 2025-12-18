@@ -20,14 +20,27 @@ export async function listAppointmentsForUser(user: { id: string; role: UserRole
     return prisma.appointment.findMany({
       where: { clientId: user.id },
       orderBy: { startAt: "asc" },
-      include: { business: true }
+      include: { business: true, client: true }
     });
   }
 
   return prisma.appointment.findMany({
     where: { businessId: user.id },
     orderBy: { startAt: "asc" },
-    include: { client: true }
+    include: { client: true, business: true }
+  });
+}
+
+export async function listMyAppointments(userId: string) {
+  return prisma.appointment.findMany({
+    where: {
+      OR: [{ clientId: userId }, { businessId: userId }]
+    },
+    include: {
+      client: { select: { id: true, name: true, email: true } },
+      business: { select: { id: true, name: true, email: true } }
+    },
+    orderBy: { startAt: "asc" }
   });
 }
 
@@ -74,10 +87,7 @@ export async function createAppointment(opts: {
     });
 
     if (overlaps) {
-      // Precise overlap check (startAt/endAt)
-      const existingEnd = addMinutes(overlaps.startAt, overlaps.durationMin);
-      const newEnd = addMinutes(startAt, durationMin);
-      if (isOverlapping({ startA: overlaps.startAt, endA: existingEnd, startB: startAt, endB: newEnd })) {
+      if (isOverlapping(overlaps.startAt, overlaps.durationMin, startAt, durationMin)) {
         throw new ApiError(409, "CONFLICT", "Time slot is already booked");
       }
     }
@@ -141,10 +151,8 @@ export async function rescheduleAppointment(opts: {
     orderBy: { startAt: "asc" }
   });
 
-  const newEnd = addMinutes(startAt, durationMin);
   for (const e of existing) {
-    const end = addMinutes(e.startAt, e.durationMin);
-    if (isOverlapping({ startA: e.startAt, endA: end, startB: startAt, endB: newEnd })) {
+    if (isOverlapping(e.startAt, e.durationMin, startAt, durationMin)) {
       throw new ApiError(409, "CONFLICT", "Time slot is already booked");
     }
   }

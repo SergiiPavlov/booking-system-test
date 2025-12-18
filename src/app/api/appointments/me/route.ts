@@ -5,7 +5,7 @@ import { listMyAppointments } from "@/lib/services/appointments.service";
 export async function GET() {
   try {
     const auth = await requireAuth();
-    const appointments = await listMyAppointments({ userId: auth.userId, role: auth.role });
+    const appointments = await listMyAppointments(auth.userId);
     return jsonOk({ appointments });
   } catch (e) {
     return jsonError(e);

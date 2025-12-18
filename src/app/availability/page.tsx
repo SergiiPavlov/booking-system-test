@@ -19,6 +19,13 @@ const DAYS: { d: number; name: string }[] = [
   { d: 0, name: 'Sun' }
 ];
 
+function minToTime(min?: number): string {
+  if (typeof min !== 'number' || Number.isNaN(min)) return '00:00';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 function emptyDay(dayOfWeek: number): AvailabilityDayInput {
   return {
     dayOfWeek,
@@ -58,13 +65,17 @@ export default function AvailabilityPage() {
 
         const res = await getAvailabilityMe();
         const map = new Map<number, AvailabilityDayInput>();
-        for (const d of res.availability.days) {
+        for (const d of res.availability?.days ?? []) {
+          const fallback = emptyDay(d.dayOfWeek);
           map.set(d.dayOfWeek, {
             dayOfWeek: d.dayOfWeek,
             enabled: true,
-            start: d.start,
-            end: d.end,
-            breaks: d.breaks ?? []
+            start: typeof d.startMin === 'number' ? minToTime(d.startMin) : fallback.start,
+            end: typeof d.endMin === 'number' ? minToTime(d.endMin) : fallback.end,
+            breaks: (d.breaks ?? []).map((b) => ({
+              start: minToTime(b.startMin),
+              end: minToTime(b.endMin)
+            }))
           });
         }
 
@@ -123,14 +134,13 @@ export default function AvailabilityPage() {
     try {
       const payload = {
         slotStepMin: 15,
-        days: days
-          .filter((d) => d.enabled)
-          .map((d) => ({
-            dayOfWeek: d.dayOfWeek,
-            start: d.start,
-            end: d.end,
-            breaks: (d.breaks ?? []).filter((b) => b.start && b.end)
-          }))
+        days: days.map((d) => ({
+          dayOfWeek: d.dayOfWeek,
+          enabled: d.enabled,
+          start: d.start,
+          end: d.end,
+          breaks: (d.breaks ?? []).filter((b) => b.start && b.end)
+        }))
       };
 
       await updateAvailabilityMe(payload);

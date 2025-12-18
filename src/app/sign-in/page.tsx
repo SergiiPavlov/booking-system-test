@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { api } from "@/lib/client/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -8,7 +9,7 @@ type SignInResponse = {
   user: { id: string; name: string; email: string; role: "CLIENT" | "BUSINESS" };
 };
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = useMemo(() => params.get("next") ?? "/businesses", [params]);
@@ -96,5 +97,13 @@ export default function SignInPage() {
         </ul>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md p-6 text-sm text-gray-400">Loading sign-in form...</div>}>
+      <SignInForm />
+    </Suspense>
   );
 }
