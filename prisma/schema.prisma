@@ -30,6 +30,9 @@ model User {
 
   clientAppointments   Appointment[] @relation("ClientAppointments")
   businessAppointments Appointment[] @relation("BusinessAppointments")
+
+  workingHours BusinessWorkingHour[] @relation("BusinessWorkingHours")
+  breaks       BusinessBreak[]       @relation("BusinessBreaks")
 }
 
 model Appointment {
@@ -47,4 +50,32 @@ model Appointment {
 
   @@index([businessId, startAt])
   @@index([clientId, startAt])
+}
+
+// Weekly working hours for BUSINESS accounts.
+// Time is stored as minutes from midnight (0..1439) for easy slot generation.
+model BusinessWorkingHour {
+  id         String @id @default(uuid())
+  businessId String
+  dayOfWeek  Int
+  startMin   Int
+  endMin     Int
+
+  business User @relation("BusinessWorkingHours", fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, dayOfWeek])
+  @@index([businessId, dayOfWeek])
+}
+
+// Optional breaks inside working hours. Multiple breaks per day are allowed.
+model BusinessBreak {
+  id         String @id @default(uuid())
+  businessId String
+  dayOfWeek  Int
+  startMin   Int
+  endMin     Int
+
+  business User @relation("BusinessBreaks", fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, dayOfWeek])
 }

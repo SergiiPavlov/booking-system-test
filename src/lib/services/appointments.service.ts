@@ -1,174 +1,189 @@
-import { prisma } from "@/lib/db/prisma";
-import { ApiError } from "@/lib/http/errors";
 import { AppointmentStatus, UserRole } from "@prisma/client";
+import { ApiError } from "@/lib/http/ApiError";
+import { prisma } from "@/lib/db/prisma";
 import { isOverlapping } from "./overlap";
+import { isWithinAvailability } from "./availability.service";
+
+// Tiny date helpers (avoid extra deps like date-fns for this test assignment).
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60_000);
+}
+
+function isBefore(a: Date, b: Date): boolean {
+  return a.getTime() < b.getTime();
+}
 
 const MAX_DURATION_MIN = 240;
 
-function toDate(input: string): Date {
-  const d = new Date(input);
-  if (Number.isNaN(d.getTime())) throw new ApiError(400, "VALIDATION_ERROR", "Invalid startAt");
-  return d;
-}
-
-function addMinutes(d: Date, min: number): Date {
-  return new Date(d.getTime() + min * 60_000);
-}
-
-export async function createAppointment(input: {
-  clientId: string;
-  businessId: string;
-  startAt: string;
-  durationMin: number;
-}) {
-  const startAt = toDate(input.startAt);
-  if (startAt.getTime() < Date.now()) throw new ApiError(400, "VALIDATION_ERROR", "startAt must be in the future");
-
-  const business = await prisma.user.findUnique({ where: { id: input.businessId }, select: { id: true, role: true } });
-  if (!business || business.role !== UserRole.BUSINESS)
-    throw new ApiError(400, "VALIDATION_ERROR", "businessId must be a BUSINESS user");
-
-  const newEnd = addMinutes(startAt, input.durationMin);
-  const windowStart = addMinutes(startAt, -MAX_DURATION_MIN);
-  const windowEnd = addMinutes(newEnd, MAX_DURATION_MIN);
-
-  // Transaction to reduce race window
-  return prisma.$transaction(async (tx) => {
-    const candidates = await tx.appointment.findMany({
-      where: {
-        businessId: input.businessId,
-        status: AppointmentStatus.BOOKED,
-        startAt: { gte: windowStart, lte: windowEnd }
-      },
-      select: { id: true, startAt: true, durationMin: true }
+export async function listAppointmentsForUser(user: { id: string; role: UserRole }) {
+  if (user.role === UserRole.CLIENT) {
+    return prisma.appointment.findMany({
+      where: { clientId: user.id },
+      orderBy: { startAt: "asc" },
+      include: { business: true }
     });
+  }
 
-    const conflict = candidates.some((a) => isOverlapping(a.startAt, a.durationMin, startAt, input.durationMin));
-    if (conflict) throw new ApiError(409, "CONFLICT", "Time slot is already booked");
-
-    const appt = await tx.appointment.create({
-      data: {
-        clientId: input.clientId,
-        businessId: input.businessId,
-        startAt,
-        durationMin: input.durationMin,
-        status: AppointmentStatus.BOOKED
-      },
-      select: {
-        id: true,
-        clientId: true,
-        businessId: true,
-        startAt: true,
-        durationMin: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
-
-    return appt;
+  return prisma.appointment.findMany({
+    where: { businessId: user.id },
+    orderBy: { startAt: "asc" },
+    include: { client: true }
   });
 }
 
-export async function listMyAppointments(input: { userId: string; role: "CLIENT" | "BUSINESS" }) {
-  const where = input.role === "BUSINESS" ? { businessId: input.userId } : { clientId: input.userId };
+export async function createAppointment(opts: {
+  clientId: string;
+  businessId: string;
+  startAt: Date;
+  durationMin: number;
+}) {
+  const { clientId, businessId, startAt, durationMin } = opts;
 
-  return prisma.appointment.findMany({
-    where,
-    orderBy: { startAt: "asc" },
-    select: {
-      id: true,
-      clientId: true,
-      businessId: true,
-      startAt: true,
-      durationMin: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-      client: { select: { id: true, name: true, email: true } },
-      business: { select: { id: true, name: true, email: true } }
+  if (!startAt || Number.isNaN(startAt.getTime())) {
+    throw new ApiError(400, "VALIDATION_ERROR", "startAt is invalid");
+  }
+
+  if (isBefore(startAt, new Date())) {
+    throw new ApiError(400, "VALIDATION_ERROR", "startAt must be in the future");
+  }
+
+  if (!Number.isInteger(durationMin)) {
+    throw new ApiError(400, "VALIDATION_ERROR", "durationMin must be an integer");
+  }
+
+  if (durationMin < 15) throw new ApiError(400, "VALIDATION_ERROR", "durationMin must be >= 15");
+  if (durationMin > MAX_DURATION_MIN)
+    throw new ApiError(400, "VALIDATION_ERROR", `durationMin must be <= ${MAX_DURATION_MIN}`);
+
+  const withinAvailability = await isWithinAvailability({ businessId, startAt, durationMin });
+  if (!withinAvailability) {
+    throw new ApiError(409, "CONFLICT", "Time slot is outside business availability");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const overlaps = await tx.appointment.findFirst({
+      where: {
+        businessId,
+        status: AppointmentStatus.BOOKED,
+        // Narrow DB filter (the precise overlap check is done below)
+        startAt: {
+          lt: addMinutes(startAt, durationMin)
+        }
+      },
+      orderBy: { startAt: "asc" }
+    });
+
+    if (overlaps) {
+      // Precise overlap check (startAt/endAt)
+      const existingEnd = addMinutes(overlaps.startAt, overlaps.durationMin);
+      const newEnd = addMinutes(startAt, durationMin);
+      if (isOverlapping({ startA: overlaps.startAt, endA: existingEnd, startB: startAt, endB: newEnd })) {
+        throw new ApiError(409, "CONFLICT", "Time slot is already booked");
+      }
+    }
+
+    return tx.appointment.create({
+      data: {
+        clientId,
+        businessId,
+        startAt,
+        durationMin,
+        status: AppointmentStatus.BOOKED
+      }
+    });
+  });
+}
+
+export async function rescheduleAppointment(opts: {
+  appointmentId: string;
+  user: { id: string; role: UserRole };
+  startAt: Date;
+  durationMin: number;
+}) {
+  const { appointmentId, user, startAt, durationMin } = opts;
+
+  const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+  if (!appt) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
+
+  if (user.role !== UserRole.CLIENT || appt.clientId !== user.id) {
+    throw new ApiError(403, "FORBIDDEN", "You can reschedule only your own appointments");
+  }
+
+  if (appt.status !== AppointmentStatus.BOOKED) {
+    throw new ApiError(409, "CONFLICT", "Only BOOKED appointments can be rescheduled");
+  }
+
+  if (!startAt || Number.isNaN(startAt.getTime())) {
+    throw new ApiError(400, "VALIDATION_ERROR", "startAt is invalid");
+  }
+
+  if (!Number.isInteger(durationMin)) {
+    throw new ApiError(400, "VALIDATION_ERROR", "durationMin must be an integer");
+  }
+
+  if (durationMin < 15) throw new ApiError(400, "VALIDATION_ERROR", "durationMin must be >= 15");
+  if (durationMin > MAX_DURATION_MIN)
+    throw new ApiError(400, "VALIDATION_ERROR", `durationMin must be <= ${MAX_DURATION_MIN}`);
+
+  const withinAvailability = await isWithinAvailability({ businessId: appt.businessId, startAt, durationMin });
+  if (!withinAvailability) {
+    throw new ApiError(409, "CONFLICT", "Time slot is outside business availability");
+  }
+
+  // conflict check (ignore current appointment)
+  const existing = await prisma.appointment.findMany({
+    where: {
+      businessId: appt.businessId,
+      status: AppointmentStatus.BOOKED,
+      id: { not: appt.id },
+      startAt: { lt: addMinutes(startAt, durationMin) }
+    },
+    orderBy: { startAt: "asc" }
+  });
+
+  const newEnd = addMinutes(startAt, durationMin);
+  for (const e of existing) {
+    const end = addMinutes(e.startAt, e.durationMin);
+    if (isOverlapping({ startA: e.startAt, endA: end, startB: startAt, endB: newEnd })) {
+      throw new ApiError(409, "CONFLICT", "Time slot is already booked");
+    }
+  }
+
+  return prisma.appointment.update({
+    where: { id: appt.id },
+    data: {
+      startAt,
+      durationMin,
+      updatedAt: new Date()
     }
   });
 }
 
-export async function rescheduleAppointment(input: {
-  appointmentId: string;
-  actorUserId: string;
-  actorRole: "CLIENT" | "BUSINESS";
-  startAt?: string;
-  durationMin?: number;
-}) {
-  const existing = await prisma.appointment.findUnique({
-    where: { id: input.appointmentId },
-    select: { id: true, clientId: true, businessId: true, startAt: true, durationMin: true, status: true }
-  });
-  if (!existing) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
-  if (existing.status !== AppointmentStatus.BOOKED)
-    throw new ApiError(409, "CONFLICT", "Only BOOKED appointments can be rescheduled");
+export async function cancelAppointment(opts: { appointmentId: string; user: { id: string; role: UserRole } }) {
+  const { appointmentId, user } = opts;
 
-  // Only owner client can reschedule in this simplified spec
-  if (existing.clientId !== input.actorUserId)
-    throw new ApiError(403, "FORBIDDEN", "You can reschedule only your own appointments");
+  const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+  if (!appt) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
 
-  const newStart = input.startAt ? toDate(input.startAt) : existing.startAt;
-  const newDuration = input.durationMin ?? existing.durationMin;
-
-  if (newStart.getTime() < Date.now()) throw new ApiError(400, "VALIDATION_ERROR", "startAt must be in the future");
-
-  const newEnd = addMinutes(newStart, newDuration);
-  const windowStart = addMinutes(newStart, -MAX_DURATION_MIN);
-  const windowEnd = addMinutes(newEnd, MAX_DURATION_MIN);
-
-  return prisma.$transaction(async (tx) => {
-    const candidates = await tx.appointment.findMany({
-      where: {
-        businessId: existing.businessId,
-        status: AppointmentStatus.BOOKED,
-        id: { not: existing.id },
-        startAt: { gte: windowStart, lte: windowEnd }
-      },
-      select: { id: true, startAt: true, durationMin: true }
+  if (appt.status !== AppointmentStatus.BOOKED) {
+    // idempotent-ish
+    return prisma.appointment.update({
+      where: { id: appt.id },
+      data: { status: AppointmentStatus.CANCELED, updatedAt: new Date() }
     });
-
-    const conflict = candidates.some((a) => isOverlapping(a.startAt, a.durationMin, newStart, newDuration));
-    if (conflict) throw new ApiError(409, "CONFLICT", "Time slot is already booked");
-
-    return tx.appointment.update({
-      where: { id: existing.id },
-      data: { startAt: newStart, durationMin: newDuration },
-      select: { id: true, clientId: true, businessId: true, startAt: true, durationMin: true, status: true, updatedAt: true }
-    });
-  });
-}
-
-export async function cancelAppointment(input: {
-  appointmentId: string;
-  actorUserId: string;
-  actorRole: "CLIENT" | "BUSINESS";
-}) {
-  const existing = await prisma.appointment.findUnique({
-    where: { id: input.appointmentId },
-    select: { id: true, clientId: true, businessId: true, status: true }
-  });
-  if (!existing) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
-
-  const isOwnerClient = existing.clientId === input.actorUserId;
-  const isOwnerBusiness = existing.businessId === input.actorUserId;
-
-  // Both sides can cancel, but only for their own appointments
-  if (input.actorRole === "CLIENT") {
-    if (!isOwnerClient) throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
-  } else {
-    if (!isOwnerBusiness) throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
   }
 
-  if (existing.status !== AppointmentStatus.BOOKED) {
-    return existing;
+  // CLIENT can cancel only own; BUSINESS can cancel only own business
+  const allowed =
+    (user.role === UserRole.CLIENT && appt.clientId === user.id) ||
+    (user.role === UserRole.BUSINESS && appt.businessId === user.id);
+
+  if (!allowed) {
+    throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
   }
 
   return prisma.appointment.update({
-    where: { id: existing.id },
-    data: { status: AppointmentStatus.CANCELED },
-    select: { id: true, clientId: true, businessId: true, status: true, updatedAt: true }
+    where: { id: appt.id },
+    data: { status: AppointmentStatus.CANCELED, updatedAt: new Date() }
   });
 }

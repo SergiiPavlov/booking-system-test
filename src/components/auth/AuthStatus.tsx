@@ -61,7 +61,7 @@ export default function AuthStatus() {
     return <span className="text-gray-400">Loading…</span>;
   }
 
-  if (state.status === "anonymous") {
+  if (state.status === "anonymous" || !state.user) {
     return (
       <>
         <Link href="/sign-in" className="rounded-xl px-3 py-1.5 hover:bg-gray-800">
