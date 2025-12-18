@@ -5,7 +5,7 @@ import { rescheduleAppointment } from "@/lib/services/appointments.service";
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const auth = requireAuth();
+    const auth = await requireAuth();
     const { id } = await ctx.params;
 
     const body = await req.json();

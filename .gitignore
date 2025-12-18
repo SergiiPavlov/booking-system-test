@@ -7,3 +7,8 @@ out
 .DS_Store
 *.log
 prisma/dev.db
+
+# local curl cookie jars (do not commit)
+cookies.txt
+bizcookies.txt
+c2.txt

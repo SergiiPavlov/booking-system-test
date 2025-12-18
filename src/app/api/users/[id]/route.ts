@@ -6,7 +6,7 @@ import { deleteUser, getUserById, updateUser } from "@/lib/services/users.servic
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth();
+    await requireAuth();
     const { id } = await ctx.params;
     const user = await getUserById(id);
     if (!user) throw new ApiError(404, "NOT_FOUND", "User not found");
@@ -18,7 +18,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth();
+    await requireAuth();
     const { id } = await ctx.params;
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
@@ -33,7 +33,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth();
+    await requireAuth();
     const { id } = await ctx.params;
     await deleteUser(id);
     return jsonOk({ ok: true });

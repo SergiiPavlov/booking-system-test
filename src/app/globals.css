@@ -1,9 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind CSS v4 */
+@import "tailwindcss";
 
+/* Minimal fallback/base styles (still useful even if you temporarily break Tailwind) */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
 }
 
 html, body {

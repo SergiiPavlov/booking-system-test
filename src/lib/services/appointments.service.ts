@@ -25,7 +25,8 @@ export async function createAppointment(input: {
   if (startAt.getTime() < Date.now()) throw new ApiError(400, "VALIDATION_ERROR", "startAt must be in the future");
 
   const business = await prisma.user.findUnique({ where: { id: input.businessId }, select: { id: true, role: true } });
-  if (!business || business.role !== UserRole.BUSINESS) throw new ApiError(400, "VALIDATION_ERROR", "businessId must be a BUSINESS user");
+  if (!business || business.role !== UserRole.BUSINESS)
+    throw new ApiError(400, "VALIDATION_ERROR", "businessId must be a BUSINESS user");
 
   const newEnd = addMinutes(startAt, input.durationMin);
   const windowStart = addMinutes(startAt, -MAX_DURATION_MIN);
@@ -70,10 +71,7 @@ export async function createAppointment(input: {
 }
 
 export async function listMyAppointments(input: { userId: string; role: "CLIENT" | "BUSINESS" }) {
-  const where =
-    input.role === "BUSINESS"
-      ? { businessId: input.userId }
-      : { clientId: input.userId };
+  const where = input.role === "BUSINESS" ? { businessId: input.userId } : { clientId: input.userId };
 
   return prisma.appointment.findMany({
     where,
@@ -105,10 +103,12 @@ export async function rescheduleAppointment(input: {
     select: { id: true, clientId: true, businessId: true, startAt: true, durationMin: true, status: true }
   });
   if (!existing) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
-  if (existing.status !== AppointmentStatus.BOOKED) throw new ApiError(409, "CONFLICT", "Only BOOKED appointments can be rescheduled");
+  if (existing.status !== AppointmentStatus.BOOKED)
+    throw new ApiError(409, "CONFLICT", "Only BOOKED appointments can be rescheduled");
 
   // Only owner client can reschedule in this simplified spec
-  if (existing.clientId !== input.actorUserId) throw new ApiError(403, "FORBIDDEN", "You can reschedule only your own appointments");
+  if (existing.clientId !== input.actorUserId)
+    throw new ApiError(403, "FORBIDDEN", "You can reschedule only your own appointments");
 
   const newStart = input.startAt ? toDate(input.startAt) : existing.startAt;
   const newDuration = input.durationMin ?? existing.durationMin;
@@ -141,18 +141,34 @@ export async function rescheduleAppointment(input: {
   });
 }
 
-export async function cancelAppointment(input: { appointmentId: string; actorUserId: string }) {
+export async function cancelAppointment(input: {
+  appointmentId: string;
+  actorUserId: string;
+  actorRole: "CLIENT" | "BUSINESS";
+}) {
   const existing = await prisma.appointment.findUnique({
     where: { id: input.appointmentId },
-    select: { id: true, clientId: true, status: true }
+    select: { id: true, clientId: true, businessId: true, status: true }
   });
   if (!existing) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
-  if (existing.clientId != input.actorUserId) throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
-  if (existing.status !== AppointmentStatus.BOOKED) return existing;
+
+  const isOwnerClient = existing.clientId === input.actorUserId;
+  const isOwnerBusiness = existing.businessId === input.actorUserId;
+
+  // Both sides can cancel, but only for their own appointments
+  if (input.actorRole === "CLIENT") {
+    if (!isOwnerClient) throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
+  } else {
+    if (!isOwnerBusiness) throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
+  }
+
+  if (existing.status !== AppointmentStatus.BOOKED) {
+    return existing;
+  }
 
   return prisma.appointment.update({
     where: { id: existing.id },
     data: { status: AppointmentStatus.CANCELED },
-    select: { id: true, clientId: true, status: true, updatedAt: true }
+    select: { id: true, clientId: true, businessId: true, status: true, updatedAt: true }
   });
 }

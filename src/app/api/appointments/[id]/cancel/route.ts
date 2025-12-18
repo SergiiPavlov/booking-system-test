@@ -4,10 +4,15 @@ import { cancelAppointment } from "@/lib/services/appointments.service";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const auth = requireAuth();
+    const auth = await requireAuth();
     const { id } = await ctx.params;
 
-    const appointment = await cancelAppointment({ appointmentId: id, actorUserId: auth.userId });
+    const appointment = await cancelAppointment({
+      appointmentId: id,
+      actorUserId: auth.userId,
+      actorRole: auth.role
+    });
+
     return jsonOk({ appointment });
   } catch (e) {
     return jsonError(e);

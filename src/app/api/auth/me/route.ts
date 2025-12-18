@@ -4,7 +4,7 @@ import { jsonError, jsonOk } from "@/lib/http/response";
 
 export async function GET() {
   try {
-    const auth = requireAuth();
+    const auth = await requireAuth();
     const user = await prisma.user.findUnique({
       where: { id: auth.userId },
       select: { id: true, name: true, email: true, role: true, createdAt: true, updatedAt: true }

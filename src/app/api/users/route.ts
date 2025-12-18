@@ -5,7 +5,7 @@ import { createUser, listUsers } from "@/lib/services/users.service";
 
 export async function GET(req: Request) {
   try {
-    requireAuth();
+    await requireAuth();
     const url = new URL(req.url);
     const role = url.searchParams.get("role") as "CLIENT" | "BUSINESS" | null;
     const users = await listUsers(role ?? undefined);
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    requireAuth();
+    await requireAuth();
     const body = await req.json();
     const parsed = createUserSchema.safeParse(body);
     if (!parsed.success) throw validationError(parsed.error.flatten());

@@ -6,7 +6,7 @@ import { ApiError } from "@/lib/http/errors";
 
 export async function POST(req: Request) {
   try {
-    const auth = requireAuth();
+    const auth = await requireAuth();
     if (auth.role !== "CLIENT") throw new ApiError(403, "FORBIDDEN", "Only CLIENT can create appointments");
 
     const body = await req.json();
