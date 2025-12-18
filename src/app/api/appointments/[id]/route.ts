@@ -14,10 +14,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const appointment = await rescheduleAppointment({
       appointmentId: id,
-      actorUserId: auth.userId,
-      actorRole: auth.role,
-      startAt: parsed.data.startAt,
-      durationMin: parsed.data.durationMin
+      user: { id: auth.userId, role: auth.role },
+      startAt: parsed.data.startAt ? new Date(parsed.data.startAt) : new Date(NaN),
+      durationMin: parsed.data.durationMin ?? NaN
     });
 
     return jsonOk({ appointment });

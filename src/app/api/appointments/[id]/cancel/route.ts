@@ -9,8 +9,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 
     const appointment = await cancelAppointment({
       appointmentId: id,
-      actorUserId: auth.userId,
-      actorRole: auth.role
+      user: { id: auth.userId, role: auth.role }
     });
 
     return jsonOk({ appointment });

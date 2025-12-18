@@ -1,5 +1,17 @@
 import { prisma } from '@/lib/db/prisma';
 
+export type WeeklyAvailability = {
+  slotStepMin: number;
+  days: Array<{
+    dayOfWeek: number;
+    enabled: boolean;
+    start?: string;
+    end?: string;
+    breaks?: Array<{ start: string; end: string }>;
+  }>;
+  version?: number;
+};
+
 export type AvailabilityBreak = { startMin: number; endMin: number };
 export type AvailabilityDay = {
   dayOfWeek: number; // 0..6 (UTC)
@@ -59,16 +71,7 @@ export async function getAvailabilityForBusiness(businessId: string): Promise<Av
 
 export async function setAvailabilityForBusiness(
   businessId: string,
-  input: {
-    slotStepMin: number;
-    days: Array<{
-      dayOfWeek: number;
-      enabled: boolean;
-      start?: string;
-      end?: string;
-      breaks?: Array<{ start: string; end: string }>;
-    }>;
-  }
+  input: WeeklyAvailability
 ): Promise<AvailabilityState> {
   const enabledDays = input.days.filter((d) => d.enabled);
 
@@ -180,19 +183,32 @@ export async function ensureWithinAvailabilityOrThrow(args: {
   }
 }
 
-export async function getFreeSlots(args: {
-  businessId: string;
-  from: Date;
-  to: Date;
-  durationMin: number;
-  slotStepMin?: number;
-}): Promise<string[]> {
+type FreeSlotsRange =
+  | {
+      businessId: string;
+      from: Date | string;
+      to: Date | string;
+      durationMin: number;
+      slotStepMin?: number;
+    }
+  | {
+      businessId: string;
+      date: string;
+      durationMin: number;
+      slotStepMin?: number;
+    };
+
+export async function getFreeSlots(args: FreeSlotsRange): Promise<string[]> {
   const { businessId, durationMin } = args;
   const slotStepMin = clamp(args.slotStepMin ?? 15, 5, 120);
 
-  const from = new Date(args.from);
-  const to = new Date(args.to);
-  if (to <= from) return [];
+  const from = "date" in args ? new Date(`${args.date}T00:00:00.000Z`) : new Date(args.from);
+  const to =
+    "date" in args
+      ? new Date(from.getTime() + 24 * 60 * 60 * 1000)
+      : new Date((args as { to: Date | string }).to);
+
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from) return [];
 
   const [workingHours, breaks, booked] = await Promise.all([
     prisma.businessWorkingHour.findMany({ where: { businessId } }),
@@ -312,3 +328,11 @@ export async function isWithinAvailability(opts: {
 
   return true;
 }
+
+export const getBusinessAvailability = getAvailabilityForBusiness;
+export const setBusinessAvailability = setAvailabilityForBusiness;
+
+export const getAvailabilityOrDefault = getAvailabilityForBusiness;
+export const upsertAvailability = setAvailabilityForBusiness;
+
+export const getAvailableSlots = getFreeSlots;
