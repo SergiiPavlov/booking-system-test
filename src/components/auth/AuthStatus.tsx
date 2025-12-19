@@ -64,12 +64,12 @@ export default function AuthStatus() {
   if (state.status === "anonymous" || !state.user) {
     return (
       <>
-        <Link href="/sign-in" className="rounded-xl px-3 py-1.5 hover:bg-gray-800">
+        <Link href="/sign-in" className="rounded-xl px-3 py-1.5 text-gray-700 hover:bg-gray-100 hover:text-gray-900">
           Sign in
         </Link>
         <Link
           href="/sign-up"
-          className="rounded-xl border border-gray-700 bg-gray-900 px-3 py-1.5 hover:bg-gray-800"
+          className="rounded-xl bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
           Sign up
         </Link>
@@ -79,13 +79,13 @@ export default function AuthStatus() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-gray-300">
-        {state.user.name} <span className="text-gray-500">({state.user.role})</span>
+      <span className="text-gray-900">
+        {state.user.name} <span className="text-gray-600">({state.user.role})</span>
       </span>
       <button
         type="button"
         onClick={onSignOut}
-        className="rounded-xl border border-gray-700 px-3 py-1.5 hover:bg-gray-800"
+        className="rounded-xl bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
       >
         Sign out
       </button>

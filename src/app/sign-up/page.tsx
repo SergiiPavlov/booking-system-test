@@ -37,42 +37,42 @@ export default function SignUpPage() {
 
   return (
     <div className="mx-auto max-w-md">
-      <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-6 shadow-sm">
-        <h2 className="text-xl font-semibold">Sign up</h2>
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-md text-gray-900">
+        <h2 className="text-xl font-semibold text-gray-900">Sign up</h2>
         <p className="mt-1 text-sm text-gray-400">Create an account (CLIENT or BUSINESS).</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           <label className="grid gap-2">
-            <span className="text-sm text-gray-300">Name</span>
+            <span className="text-sm font-medium text-gray-700">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               type="text"
-              className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 outline-none focus:ring-2 focus:ring-gray-600"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:ring-2 focus:ring-gray-600"
               placeholder="Your name"
               required
             />
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm text-gray-300">Email</span>
+            <span className="text-sm font-medium text-gray-700">Email</span>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
-              className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 outline-none focus:ring-2 focus:ring-gray-600"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:ring-2 focus:ring-gray-600"
               placeholder="you@example.com"
               required
             />
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm text-gray-300">Password</span>
+            <span className="text-sm font-medium text-gray-700">Password</span>
             <input
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
-              className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 outline-none focus:ring-2 focus:ring-gray-600"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:ring-2 focus:ring-gray-600"
               placeholder="••••••••"
               required
             />
@@ -80,11 +80,11 @@ export default function SignUpPage() {
           </label>
 
           <label className="grid gap-2">
-            <span className="text-sm text-gray-300">Role</span>
+            <span className="text-sm font-medium text-gray-700">Role</span>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "CLIENT" | "BUSINESS")}
-              className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 outline-none focus:ring-2 focus:ring-gray-600"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:ring-2 focus:ring-gray-600"
             >
               <option value="CLIENT">CLIENT</option>
               <option value="BUSINESS">BUSINESS</option>
@@ -96,7 +96,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Creating…" : "Create account"}
           </button>

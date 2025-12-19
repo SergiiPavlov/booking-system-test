@@ -3,7 +3,7 @@
 
 /* Minimal fallback/base styles (still useful even if you temporarily break Tailwind) */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
