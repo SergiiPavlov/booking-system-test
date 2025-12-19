@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 
 export type JwtPayload = {
   userId: string;
-  role: "CLIENT" | "BUSINESS";
+  role: "CLIENT" | "BUSINESS" | "ADMIN";
 };
 
 function getSecret(): string {
@@ -19,8 +19,9 @@ export function verifyToken(token: string): JwtPayload {
   const decoded = jwt.verify(token, getSecret(), { algorithms: ["HS256"] });
   const payload = decoded as jwt.JwtPayload;
   if (!payload?.userId || !payload?.role) throw new Error("Invalid token payload");
+  const role = String(payload.role);
   return {
     userId: String(payload.userId),
-    role: payload.role === "BUSINESS" ? "BUSINESS" : "CLIENT"
+    role: role === "ADMIN" ? "ADMIN" : role === "BUSINESS" ? "BUSINESS" : "CLIENT"
   };
 }

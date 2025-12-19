@@ -16,7 +16,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       appointmentId: id,
       user: { id: auth.userId, role: auth.role },
       startAt: parsed.data.startAt ? new Date(parsed.data.startAt) : new Date(NaN),
-      durationMin: parsed.data.durationMin ?? NaN
+      durationMin: parsed.data.durationMin ?? NaN,
+      tzOffsetMin: parsed.data.tzOffsetMin
     });
 
     return jsonOk({ appointment });

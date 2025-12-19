@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 type SignInResponse = {
-  user: { id: string; name: string; email: string; role: "CLIENT" | "BUSINESS" };
+  user: { id: string; name: string; email: string; role: "CLIENT" | "BUSINESS" | "ADMIN" };
 };
 
 function SignInForm() {
@@ -96,6 +96,7 @@ function SignInForm() {
           <li>client2@example.com / Password123!</li>
           <li>biz1@example.com / Password123!</li>
           <li>biz2@example.com / Password123!</li>
+          <li className="pt-1">admin@example.com / Admin123!</li>
         </ul>
       </div>
     </div>

@@ -12,6 +12,7 @@ datasource db {
 enum UserRole {
   CLIENT
   BUSINESS
+  ADMIN
 }
 
 enum AppointmentStatus {
@@ -33,6 +34,10 @@ model User {
 
   workingHours BusinessWorkingHour[] @relation("BusinessWorkingHours")
   breaks       BusinessBreak[]       @relation("BusinessBreaks")
+
+  /// Store the user's timezone offset (in minutes) as returned by JS Date.getTimezoneOffset().
+  /// Used to interpret availability in the user's local time.
+  timezoneOffsetMin Int @default(0)
 }
 
 model Appointment {
