@@ -4,13 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { AUTH_CHANGED_EVENT, emitAuthChanged } from "@/lib/client/auth-events";
+
 type MeResponse = {
   user: {
     id: string;
     name: string;
     email: string;
     role: "CLIENT" | "BUSINESS";
-  };
+  } | null;
 };
 
 type AuthState =
@@ -27,7 +29,8 @@ export default function AuthStatus() {
 
   useEffect(() => {
     let isMounted = true;
-    (async () => {
+
+    const load = async () => {
       try {
         const res = await fetch("/api/auth/me", { cache: "no-store" });
         if (!isMounted) return;
@@ -36,14 +39,27 @@ export default function AuthStatus() {
           return;
         }
         const data = (await res.json()) as MeResponse;
+        if (!data.user) {
+          setState({ status: "anonymous" });
+          return;
+        }
         setState({ status: "authed", user: data.user });
       } catch {
         if (!isMounted) return;
         setState({ status: "anonymous" });
       }
-    })();
+    };
+
+    load();
+
+    const onChanged = () => {
+      load();
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onChanged);
+
     return () => {
       isMounted = false;
+      window.removeEventListener(AUTH_CHANGED_EVENT, onChanged);
     };
   }, []);
 
@@ -52,6 +68,7 @@ export default function AuthStatus() {
       await fetch("/api/auth/sign-out", { method: "POST" });
     } finally {
       setState({ status: "anonymous" });
+      emitAuthChanged();
       if (!isAuthPage) router.refresh();
       router.push("/sign-in");
     }

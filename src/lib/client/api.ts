@@ -76,7 +76,14 @@ async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
 
   // Try to parse JSON body for both ok/non-ok
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as any) : null;
+  let json: any = null;
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = { raw: text };
+    }
+  }
 
   if (!res.ok) {
     if (json?.error) throw json as ApiErrorShape;
@@ -156,10 +163,14 @@ export async function createAppointment(input: {
   businessId: string;
   startAt: string; // ISO UTC
   durationMin: number;
+  tzOffsetMin?: number;
 }) {
   return apiFetch<{ appointment: AppointmentDto }>("/api/appointments", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      ...input,
+      tzOffsetMin: input.tzOffsetMin ?? new Date().getTimezoneOffset()
+    }),
   });
 }
 
@@ -197,12 +208,15 @@ export async function updateAvailabilityMe(input: AvailabilityUpsertInput) {
   });
 }
 
-export async function getFreeSlots(params: { businessId: string; date: string; durationMin: number }) {
+export async function getFreeSlots(params: { businessId: string; date: string; durationMin: number; tzOffsetMin?: number }) {
   const q = new URLSearchParams({
     businessId: params.businessId,
     date: params.date,
     durationMin: String(params.durationMin),
   });
+  if (typeof params.tzOffsetMin === "number") {
+    q.set("tzOffsetMin", String(params.tzOffsetMin));
+  }
   return apiFetch<{ slots: string[] }>(`/api/availability/slots?${q.toString()}`);
 }
 

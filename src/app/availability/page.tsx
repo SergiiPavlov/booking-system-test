@@ -134,6 +134,7 @@ export default function AvailabilityPage() {
     try {
       const payload = {
         slotStepMin: 15,
+        tzOffsetMin: new Date().getTimezoneOffset(),
         days: days.map((d) => ({
           dayOfWeek: d.dayOfWeek,
           enabled: d.enabled,
@@ -155,8 +156,8 @@ export default function AvailabilityPage() {
     <main className="max-w-3xl mx-auto p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Availability</h1>
       <p className="text-sm text-gray-600">
-        Business working hours and breaks. Slots are generated in <b>UTC</b>{' '}
-        (simple for demo; you can extend it to timezone later).
+        Business working hours and breaks. Slots are generated using the business
+        timezone (based on your browser settings).
       </p>
 
       {loading && <div className="text-gray-600">Loading...</div>}
@@ -172,18 +173,27 @@ export default function AvailabilityPage() {
       )}
 
       <div className="border rounded">
-        <div className="grid grid-cols-12 gap-2 p-3 text-sm font-medium border-b bg-gray-50">
-          <div className="col-span-2">Day</div>
-          <div className="col-span-2">Enabled</div>
-          <div className="col-span-3">Work</div>
-          <div className="col-span-5">Breaks</div>
+        {/*
+          Почему не grid-cols-12:
+          на некоторых ширинах/масштабах браузера элементы time-инпутов начинали
+          визуально "наезжать" между колонками. Фиксируем колонки явными
+          ширинами на md+ и делаем одну колонку на mobile.
+        */}
+        <div className="grid grid-cols-1 md:grid-cols-[120px_90px_260px_1fr] gap-2 p-3 text-sm font-medium border-b bg-gray-50">
+          <div>Day</div>
+          <div>Enabled</div>
+          <div>Work</div>
+          <div>Breaks</div>
         </div>
 
         {uiDays.map(({ d, name, value }) => (
-          <div key={d} className="grid grid-cols-12 gap-2 p-3 border-b last:border-b-0 items-center">
-            <div className="col-span-2 font-medium">{name}</div>
+          <div
+            key={d}
+            className="grid grid-cols-1 md:grid-cols-[120px_90px_260px_1fr] gap-2 p-3 border-b last:border-b-0 md:items-center"
+          >
+            <div className="font-medium">{name}</div>
 
-            <div className="col-span-2">
+            <div>
               <input
                 type="checkbox"
                 checked={value.enabled}
@@ -192,7 +202,7 @@ export default function AvailabilityPage() {
               />
             </div>
 
-            <div className="col-span-3 flex gap-2">
+            <div className="flex gap-2">
               <input
                 type="time"
                 value={value.start}
@@ -210,54 +220,60 @@ export default function AvailabilityPage() {
               />
             </div>
 
-            <div className="col-span-5 space-y-1">
-              {(value.breaks ?? []).length === 0 && (
-                <div className="text-sm text-gray-500">No breaks</div>
-              )}
+            <div>
+              <div className="flex flex-col gap-2">
+                {(value.breaks ?? []).length === 0 && (
+                  <div className="text-sm text-gray-500">No breaks</div>
+                )}
 
-              {(value.breaks ?? []).map((br, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <input
-                    type="time"
-                    value={br.start}
-                    disabled={!canEdit || !value.enabled}
-                    onChange={(e) => updateBreak(d, idx, { start: e.target.value })}
-                    className="border rounded px-2 py-1 w-24"
-                  />
-                  <span className="text-gray-500 self-center">—</span>
-                  <input
-                    type="time"
-                    value={br.end}
-                    disabled={!canEdit || !value.enabled}
-                    onChange={(e) => updateBreak(d, idx, { end: e.target.value })}
-                    className="border rounded px-2 py-1 w-24"
-                  />
-                </div>
-              ))}
+                {(value.breaks ?? []).map((br, idx) => (
+                  <div key={idx} className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="time"
+                      value={br.start}
+                      disabled={!canEdit || !value.enabled}
+                      onChange={(e) => updateBreak(d, idx, { start: e.target.value })}
+                      className="border rounded px-2 py-1 w-28"
+                    />
+                    <span className="text-gray-500">—</span>
+                    <input
+                      type="time"
+                      value={br.end}
+                      disabled={!canEdit || !value.enabled}
+                      onChange={(e) => updateBreak(d, idx, { end: e.target.value })}
+                      className="border rounded px-2 py-1 w-28"
+                    />
+                  </div>
+                ))}
 
-              {canEdit && value.enabled && (value.breaks ?? []).length < 2 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateDay(d, {
-                      breaks: [...(value.breaks ?? []), { start: '13:00', end: '14:00' }]
-                    })
-                  }
-                  className="text-sm underline text-gray-700"
-                >
-                  + Add break
-                </button>
-              )}
+                {(canEdit && value.enabled) && (
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    {(value.breaks ?? []).length < 2 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateDay(d, {
+                            breaks: [...(value.breaks ?? []), { start: '13:00', end: '14:00' }]
+                          })
+                        }
+                        className="underline text-gray-700"
+                      >
+                        + Add break
+                      </button>
+                    )}
 
-              {canEdit && value.enabled && (value.breaks ?? []).length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => updateDay(d, { breaks: [] })}
-                  className="text-sm underline text-gray-700"
-                >
-                  Clear breaks
-                </button>
-              )}
+                    {(value.breaks ?? []).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => updateDay(d, { breaks: [] })}
+                        className="underline text-gray-700"
+                      >
+                        Clear breaks
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}

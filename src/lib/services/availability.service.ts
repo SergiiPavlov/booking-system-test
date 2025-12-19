@@ -26,12 +26,31 @@ export type AvailabilityState = {
 };
 
 function hhmmToMin(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map((x) => Number(x));
-  return h * 60 + m;
+  // Accept only strict HH:MM (00:00..23:59) to avoid NaN downstream.
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
+  if (!m) throw new Error(`Invalid time (expected HH:MM): ${hhmm}`);
+  const h = Number(m[1]);
+  const mm = Number(m[2]);
+  return h * 60 + mm;
 }
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
+}
+
+// Timezone helpers
+// `tzOffsetMin` uses JS `Date.getTimezoneOffset()` semantics: minutes = UTC - local.
+function toLocal(utc: Date, tzOffsetMin: number): Date {
+  return new Date(utc.getTime() - tzOffsetMin * 60 * 1000);
+}
+
+function getLocalDayOfWeek(utc: Date, tzOffsetMin: number): number {
+  return toLocal(utc, tzOffsetMin).getUTCDay();
+}
+
+function getLocalMinuteOfDay(utc: Date, tzOffsetMin: number): number {
+  const local = toLocal(utc, tzOffsetMin);
+  return local.getUTCHours() * 60 + local.getUTCMinutes();
 }
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
@@ -190,19 +209,45 @@ type FreeSlotsRange =
       to: Date | string;
       durationMin: number;
       slotStepMin?: number;
+      tzOffsetMin?: number;
     }
   | {
       businessId: string;
       date: string;
       durationMin: number;
       slotStepMin?: number;
+      tzOffsetMin?: number;
     };
 
 export async function getFreeSlots(args: FreeSlotsRange): Promise<string[]> {
   const { businessId, durationMin } = args;
   const slotStepMin = clamp(args.slotStepMin ?? 15, 5, 120);
 
-  const from = "date" in args ? new Date(`${args.date}T00:00:00.000Z`) : new Date(args.from);
+  // Timezone offset uses JS `Date.getTimezoneOffset()` semantics: minutes = UTC - local.
+  // We rely on the client-provided offset; if missing, we assume UTC.
+  const tzOffsetMin = clamp(
+    Math.trunc(
+      typeof args.tzOffsetMin === "number" && Number.isFinite(args.tzOffsetMin) ? args.tzOffsetMin : 0
+    ),
+    -840,
+    840
+  );
+
+  // When the client passes a plain YYYY-MM-DD (from <input type="date">),
+  // interpret it as *local date* for that client, not UTC.
+  // Date.getTimezoneOffset() equals (UTC - local) in minutes.
+  const from =
+    "date" in args
+      ? (() => {
+          const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(args.date);
+          if (!m) return new Date("invalid");
+          const y = Number(m[1]);
+          const mo = Number(m[2]) - 1;
+          const d = Number(m[3]);
+          const utcMidnight = Date.UTC(y, mo, d, 0, 0, 0, 0);
+          return new Date(utcMidnight + tzOffsetMin * 60_000);
+        })()
+      : new Date(args.from);
   const to =
     "date" in args
       ? new Date(from.getTime() + 24 * 60 * 60 * 1000)
@@ -247,12 +292,12 @@ export async function getFreeSlots(args: FreeSlotsRange): Promise<string[]> {
 
   const slots: string[] = [];
 
-  // iterate day by day (UTC)
-  const dayCursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), 0, 0, 0, 0));
-  const endDay = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate(), 0, 0, 0, 0));
+  // Iterate local days; availability times are stored as local minutes.
+  const dayCursor = new Date(from.getTime());
+  const endDay = new Date(to.getTime());
 
-  while (dayCursor <= endDay) {
-    const dayOfWeek = dayCursor.getUTCDay();
+  while (dayCursor < endDay) {
+    const dayOfWeek = getLocalDayOfWeek(dayCursor, tzOffsetMin);
     const wh = whByDay.get(dayOfWeek);
     if (wh) {
       const dayBreaks = breaksByDay.get(dayOfWeek) ?? [];
@@ -298,25 +343,31 @@ export async function getFreeSlots(args: FreeSlotsRange): Promise<string[]> {
     dayCursor.setUTCDate(dayCursor.getUTCDate() + 1);
   }
 
-  return slots;
+  const nowMs = Date.now();
+  // 1 minute grace for clock skew
+  return slots.filter((iso) => {
+    const ms = Date.parse(iso);
+    return Number.isFinite(ms) && ms > nowMs + 60_000;
+  });
 }
 
 export async function isWithinAvailability(opts: {
   businessId: string;
   startAt: Date;
   durationMin: number;
+  tzOffsetMin?: number;
 }): Promise<boolean> {
   const state = await getBusinessAvailability(opts.businessId);
   // Backward compatibility: if business never configured schedule, don't block booking.
   if (state.days.length === 0) return true;
 
-  const dayOfWeek = opts.startAt.getUTCDay();
+  const tzOffsetMin = clamp(Math.trunc(opts.tzOffsetMin ?? 0), -840, 840);
+  const localStartAt = toLocal(opts.startAt, tzOffsetMin);
+  const dayOfWeek = localStartAt.getUTCDay();
   const day = state.days.find((d) => d.dayOfWeek === dayOfWeek);
   if (!day) return false;
 
-  const dayStart = new Date(opts.startAt);
-  dayStart.setUTCHours(0, 0, 0, 0);
-  const startMin = Math.floor((opts.startAt.getTime() - dayStart.getTime()) / 60000);
+  const startMin = localStartAt.getUTCHours() * 60 + localStartAt.getUTCMinutes();
   const endMin = startMin + opts.durationMin;
 
   if (startMin < day.startMin || endMin > day.endMin) return false;

@@ -8,11 +8,11 @@ export async function createUser(input: {
   password: string;
   role: "CLIENT" | "BUSINESS";
 }) {
-  const passwordHash = await hashPassword(input.password);
+  const passwordHash = await hashPassword(input.password.trim());
   const user = await prisma.user.create({
     data: {
       name: input.name,
-      email: input.email.toLowerCase(),
+      email: input.email.trim().toLowerCase(),
       role: input.role === "BUSINESS" ? UserRole.BUSINESS : UserRole.CLIENT,
       passwordHash
     },
@@ -43,9 +43,9 @@ export async function updateUser(
 ) {
   const data: any = {};
   if (input.name !== undefined) data.name = input.name;
-  if (input.email !== undefined) data.email = input.email.toLowerCase();
+  if (input.email !== undefined) data.email = input.email.trim().toLowerCase();
   if (input.role !== undefined) data.role = input.role === "BUSINESS" ? UserRole.BUSINESS : UserRole.CLIENT;
-  if (input.password !== undefined) data.passwordHash = await hashPassword(input.password);
+  if (input.password !== undefined) data.passwordHash = await hashPassword(input.password.trim());
 
   return prisma.user.update({
     where: { id },

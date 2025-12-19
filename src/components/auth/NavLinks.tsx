@@ -3,37 +3,58 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-type Me = { user: { id: string; role: 'CLIENT' | 'BUSINESS'; name: string; email: string } };
+import { AUTH_CHANGED_EVENT } from '@/lib/client/auth-events';
+
+type Me = { user: { id: string; role: 'CLIENT' | 'BUSINESS'; name: string; email: string } | null };
+
+type Role = 'CLIENT' | 'BUSINESS';
 
 export function NavLinks() {
-  const [role, setRole] = useState<Me['user']['role'] | null>(null);
+  // `user` в /api/auth/me может быть null — не используем Me['user']['role'] напрямую.
+  const [role, setRole] = useState<Role | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    fetch('/api/auth/me')
-      .then(async (r) => {
-        if (!r.ok) return null;
-        return (await r.json()) as Me;
-      })
-      .then((data) => {
+
+    const load = async () => {
+      try {
+        const r = await fetch('/api/auth/me');
         if (!mounted) return;
-        setRole(data?.user.role ?? null);
+        if (!r.ok) {
+          setRole(null);
+          setLoaded(true);
+          return;
+        }
+        const data = (await r.json()) as Me;
+        if (!mounted) return;
+        setRole(data?.user?.role ?? null);
         setLoaded(true);
-      })
-      .catch(() => {
+      } catch {
         if (!mounted) return;
         setRole(null);
         setLoaded(true);
-      });
+      }
+    };
+
+    // Initial load
+    void load();
+
+    // Refresh when auth changes (sign-in / sign-out)
+    const onAuthChanged = () => void load();
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
 
     return () => {
       mounted = false;
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
     };
   }, []);
 
-  // While not loaded, render basic links (avoid layout jump)
-  const showAuthLinks = loaded ? role !== null : true;
+  // Навигация:
+  // - Home и Businesses — публичные
+  // - My appointments — только для залогиненных
+  // - Availability — только для BUSINESS
+  const isAuthed = loaded && role !== null;
 
   return (
     <nav className="flex items-center gap-4">
@@ -41,15 +62,14 @@ export function NavLinks() {
         Home
       </Link>
 
-      {showAuthLinks && (
-        <>
-          <Link href="/businesses" className="underline">
-            Businesses
-          </Link>
-          <Link href="/appointments" className="underline">
-            My appointments
-          </Link>
-        </>
+      <Link href="/businesses" className="underline">
+        Businesses
+      </Link>
+
+      {isAuthed && (
+        <Link href="/appointments" className="underline">
+          My appointments
+        </Link>
       )}
 
       {role === 'BUSINESS' && (
