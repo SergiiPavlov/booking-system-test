@@ -81,20 +81,20 @@ function BusinessCard({ b }: { b: Business }) {
   }, []);
 
   return (
-    <div className="border rounded p-4 flex flex-col gap-3">
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 flex flex-col gap-4">
       <div>
         <div className="font-semibold">{b.name}</div>
         <div className="text-sm text-gray-600">{b.email}</div>
       </div>
 
-      <div className="flex flex-wrap gap-2 items-end">
+      <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:gap-2 sm:items-end">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-gray-600">Date</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="border rounded px-2 py-1"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
           />
         </label>
 
@@ -107,14 +107,14 @@ function BusinessCard({ b }: { b: Business }) {
             step={15}
             value={durationMin}
             onChange={(e) => setDurationMin(Number(e.target.value))}
-            className="border rounded px-2 py-1 w-32"
+            className="w-full sm:w-32 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
           />
         </label>
 
         <button
           onClick={loadSlots}
           disabled={loading}
-          className="px-3 py-2 rounded bg-black text-white disabled:opacity-60"
+          className="w-full sm:w-auto rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-300 disabled:text-white/90 cursor-pointer disabled:cursor-not-allowed"
         >
           {loading ? "Loading..." : "Load slots"}
         </button>
@@ -122,7 +122,7 @@ function BusinessCard({ b }: { b: Business }) {
         <button
           onClick={book}
           disabled={!chosen}
-          className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-60"
+          className="w-full sm:w-auto rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-300 disabled:text-white/90 cursor-pointer disabled:cursor-not-allowed"
         >
           Book selected
         </button>
@@ -131,7 +131,7 @@ function BusinessCard({ b }: { b: Business }) {
       {err && <div className="text-sm text-red-600">{err}</div>}
       {success && <div className="text-sm text-emerald-700">{success}</div>}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2">
         {slots.length === 0 && !loading ? (
           <div className="text-sm text-gray-600">
             No free slots for this day.
@@ -142,8 +142,10 @@ function BusinessCard({ b }: { b: Business }) {
           <button
             key={s}
             onClick={() => setChosen(s)}
-            className={`px-3 py-2 rounded border text-sm ${
-              chosen === s ? "bg-black text-white" : "bg-white"
+            className={`rounded-xl border px-3 py-2 text-sm font-semibold cursor-pointer ${
+              chosen === s
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-gray-300 bg-white text-gray-900 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-700"
             }`}
             title={s}
           >
@@ -174,11 +176,11 @@ export default function BusinessesPage() {
   }, []);
 
   return (
-    <main className="p-6">
+    <main className="p-4 sm:p-6">
       <h1 className="text-2xl font-bold mb-4">Businesses</h1>
       {error && <div className="text-red-600 mb-4">{error}</div>}
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 sm:gap-5">
         {items.map((b) => (
           <BusinessCard key={b.id} b={b} />
         ))}

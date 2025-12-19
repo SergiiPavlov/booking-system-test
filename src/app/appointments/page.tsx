@@ -80,7 +80,7 @@ export default function MyAppointmentsPage() {
     router.refresh();
   }
 
-  if (loading) return <div className="text-gray-400">Loading…</div>;
+  if (loading) return <div className="text-gray-600">Loading…</div>;
 
   const canReschedule = isClient; // spec: only CLIENT can reschedule
   const canCancel = isClient || isBusiness; // UX: allow BUSINESS to cancel own appointments too
@@ -89,13 +89,13 @@ export default function MyAppointmentsPage() {
     <div className="grid gap-6">
       <section className="rounded-2xl border border-gray-800 bg-gray-900/30 p-5">
         <h2 className="text-lg font-semibold">My appointments</h2>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-600">
           View appointments. Reschedule is available only for CLIENT users. Cancel is available for CLIENT and BUSINESS
           users for their own appointments.
         </p>
 
         {me ? (
-          <div className="mt-3 text-sm text-gray-300">
+          <div className="mt-3 text-sm text-gray-700">
             Signed in as: <span className="font-semibold">{me.name}</span> ({me.role})
           </div>
         ) : null}
@@ -106,31 +106,60 @@ export default function MyAppointmentsPage() {
       </section>
 
       <div className="overflow-hidden rounded-2xl border border-gray-800">
-        <table className="w-full border-collapse text-sm">
-          <thead className="bg-gray-900/60 text-left text-gray-300">
-            <tr>
-              <th className="px-4 py-3">Business</th>
-              <th className="px-4 py-3">Start</th>
-              <th className="px-4 py-3">Duration</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800">
-            {items.length === 0 ? (
+        {/* Desktop (sm+) table view */}
+        <div className="hidden sm:block">
+          <table className="w-full border-collapse text-sm">
+            <thead className="bg-gray-900/60 text-left text-gray-700">
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-gray-400">
-                  No appointments yet. Go to{" "}
-                  <a href="/businesses" className="underline underline-offset-4">
-                    Businesses
-                  </a>
-                  .
-                </td>
+                <th className="px-4 py-3">Business</th>
+                <th className="px-4 py-3">Start</th>
+                <th className="px-4 py-3">Duration</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
-            ) : null}
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-gray-600">
+                    No appointments yet. Go to{" "}
+                    <a href="/businesses" className="underline underline-offset-4">
+                      Businesses
+                    </a>
+                    .
+                  </td>
+                </tr>
+              ) : null}
 
+              {items.map((a) => (
+                <AppointmentRow
+                  key={a.id}
+                  item={a}
+                  canReschedule={canReschedule}
+                  canCancel={canCancel}
+                  onCancel={cancel}
+                  onReschedule={reschedule}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile (<sm) card view */}
+        <div className="bg-gray-950/10 sm:hidden">
+          {items.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-gray-600">
+              No appointments yet. Go to{" "}
+              <a href="/businesses" className="underline underline-offset-4">
+                Businesses
+              </a>
+              .
+            </div>
+          ) : null}
+
+          <div className="divide-y divide-gray-800">
             {items.map((a) => (
-              <AppointmentRow
+              <AppointmentCard
                 key={a.id}
                 item={a}
                 canReschedule={canReschedule}
@@ -139,8 +168,8 @@ export default function MyAppointmentsPage() {
                 onReschedule={reschedule}
               />
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -198,7 +227,7 @@ function AppointmentRow({
   return (
     <tr className="bg-gray-950/10">
       <td className="px-4 py-3">
-        <div className="font-semibold text-gray-100">{businessLabel}</div>
+        <div className="font-semibold text-gray-900">{businessLabel}</div>
         <div className="mt-1 text-xs text-gray-500">ID: {item.id}</div>
       </td>
       <td className="px-4 py-3">
@@ -207,10 +236,10 @@ function AppointmentRow({
             value={localStart}
             onChange={(e) => setLocalStart(e.target.value)}
             type="datetime-local"
-            className="w-full rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-600"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
           />
         ) : (
-          <span className="text-gray-200">{formatLocal(item.startAt)}</span>
+          <span className="text-gray-800">{formatLocal(item.startAt)}</span>
         )}
       </td>
       <td className="px-4 py-3">
@@ -218,7 +247,7 @@ function AppointmentRow({
           <select
             value={durationMin}
             onChange={(e) => setDurationMin(Number(e.target.value))}
-            className="rounded-xl border border-gray-700 bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-600"
+            className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
           >
             {[15, 30, 45, 60, 90, 120, 180, 240].map((m) => (
               <option key={m} value={m}>
@@ -227,22 +256,24 @@ function AppointmentRow({
             ))}
           </select>
         ) : (
-          <span className="text-gray-200">{item.durationMin} min</span>
+          <span className="text-gray-800">{item.durationMin} min</span>
         )}
       </td>
       <td className="px-4 py-3">
         <span
           className={
             item.status === "BOOKED"
-              ? "inline-flex rounded-full border border-emerald-900 bg-emerald-950/20 px-2 py-1 text-xs text-emerald-200"
-              : "inline-flex rounded-full border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-300"
+              ? "inline-flex rounded-full border border-emerald-300 bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800"
+              : item.status === "CANCELED"
+                ? "inline-flex rounded-full border border-rose-300 bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800"
+                : "inline-flex rounded-full border border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-800"
           }
         >
           {item.status}
         </span>
       </td>
       <td className="px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           {canReschedule ? (
             editing ? (
               <>
@@ -250,7 +281,7 @@ function AppointmentRow({
                   type="button"
                   onClick={doSave}
                   disabled={busy}
-                  className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-gray-950 hover:bg-gray-100 disabled:opacity-70"
+                  className="rounded-xl whitespace-nowrap bg-white px-3 py-1.5 text-xs font-semibold text-gray-950 hover:bg-gray-100 disabled:opacity-70 cursor-pointer disabled:cursor-not-allowed"
                 >
                   Save
                 </button>
@@ -258,7 +289,7 @@ function AppointmentRow({
                   type="button"
                   onClick={() => setEditing(false)}
                   disabled={busy}
-                  className="rounded-xl border border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-800 disabled:opacity-70"
+                  className="rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                 >
                   Cancel
                 </button>
@@ -269,7 +300,7 @@ function AppointmentRow({
                   type="button"
                   onClick={() => setEditing(true)}
                   disabled={busy || !isBooked}
-                  className="rounded-xl border border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-800 disabled:opacity-50"
+                  className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
                 >
                   Reschedule
                 </button>
@@ -278,7 +309,7 @@ function AppointmentRow({
                     type="button"
                     onClick={doCancel}
                     disabled={busy || !isBooked}
-                    className="rounded-xl border border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-800 disabled:opacity-50"
+                    className="rounded-xl whitespace-nowrap border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 cursor-pointer disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
@@ -290,7 +321,7 @@ function AppointmentRow({
               type="button"
               onClick={doCancel}
               disabled={busy || !isBooked}
-              className="rounded-xl border border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-800 disabled:opacity-50"
+              className="rounded-xl whitespace-nowrap border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 cursor-pointer disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -304,5 +335,182 @@ function AppointmentRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function AppointmentCard({
+  item,
+  canReschedule,
+  canCancel,
+  onCancel,
+  onReschedule
+}: {
+  item: Appointment;
+  canReschedule: boolean;
+  canCancel: boolean;
+  onCancel: (id: string) => Promise<void>;
+  onReschedule: (id: string, localStart: string, durationMin: number) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [localStart, setLocalStart] = useState(toLocalInputValue(item.startAt));
+  const [durationMin, setDurationMin] = useState(item.durationMin);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const businessLabel = item.business?.name ?? item.businessId;
+
+  async function doCancel() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await onCancel(item.id);
+    } catch (err) {
+      setMsg({ type: "err", text: err instanceof Error ? err.message : "Cancel failed" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doSave() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await onReschedule(item.id, localStart, durationMin);
+      setEditing(false);
+      setMsg({ type: "ok", text: "Updated" });
+    } catch (err) {
+      setMsg({ type: "err", text: err instanceof Error ? err.message : "Update failed" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const isBooked = item.status === "BOOKED";
+
+  return (
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-gray-900">{businessLabel}</div>
+          <div className="mt-1 text-[11px] text-gray-500">ID: {item.id}</div>
+        </div>
+
+        <span
+          className={
+            item.status === "BOOKED"
+              ? "inline-flex shrink-0 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800"
+              : item.status === "CANCELED"
+                ? "inline-flex shrink-0 rounded-full border border-rose-300 bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800"
+                : "inline-flex shrink-0 rounded-full border border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-800"
+          }
+        >
+          {item.status}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <div className="grid grid-cols-3 items-center gap-3">
+          <div className="text-xs font-semibold text-gray-600">Start</div>
+          <div className="col-span-2">
+            {editing ? (
+              <input
+                value={localStart}
+                onChange={(e) => setLocalStart(e.target.value)}
+                type="datetime-local"
+                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+              />
+            ) : (
+              <span className="text-sm text-gray-800">{formatLocal(item.startAt)}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 items-center gap-3">
+          <div className="text-xs font-semibold text-gray-600">Duration</div>
+          <div className="col-span-2">
+            {editing ? (
+              <select
+                value={durationMin}
+                onChange={(e) => setDurationMin(Number(e.target.value))}
+                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+              >
+                {[15, 30, 45, 60, 90, 120, 180, 240].map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-sm text-gray-800">{item.durationMin} min</span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {canReschedule ? (
+            editing ? (
+              <>
+                <button
+                  type="button"
+                  onClick={doSave}
+                  disabled={busy}
+                  className="rounded-xl whitespace-nowrap bg-white px-3 py-2 text-sm font-semibold text-gray-950 hover:bg-gray-100 disabled:opacity-70 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  disabled={busy}
+                  className="rounded-xl whitespace-nowrap border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  disabled={busy || !isBooked}
+                  className="rounded-xl whitespace-nowrap border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Reschedule
+                </button>
+                {canCancel ? (
+                  <button
+                    type="button"
+                    onClick={doCancel}
+                    disabled={busy || !isBooked}
+                    className="rounded-xl whitespace-nowrap border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                ) : (
+                  <span className="col-span-1 self-center text-xs text-gray-500">No actions</span>
+                )}
+              </>
+            )
+          ) : canCancel ? (
+            <button
+              type="button"
+              onClick={doCancel}
+              disabled={busy || !isBooked}
+              className="col-span-2 rounded-xl whitespace-nowrap border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 cursor-pointer disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+          ) : (
+            <span className="col-span-2 text-xs text-gray-500">No actions</span>
+          )}
+
+          {msg ? (
+            <div className="col-span-2">
+              <span className={msg.type === "ok" ? "text-xs text-emerald-300" : "text-xs text-red-300"}>{msg.text}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

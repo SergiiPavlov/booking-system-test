@@ -268,7 +268,7 @@ export default function AvailabilityPage() {
           type="button"
           onClick={onSave}
           disabled={!canEdit || saving}
-          className="px-4 py-2 rounded bg-black text-white disabled:opacity-60"
+          className="px-4 py-2 rounded bg-black text-white disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
         >
           {saving ? 'Saving...' : 'Save availability'}
         </button>
