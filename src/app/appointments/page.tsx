@@ -35,6 +35,8 @@ export default function MyAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [view, setView] = useState<"active" | "archive">("active");
+
   const isClient = useMemo(() => me?.role === "CLIENT", [me]);
   const isBusiness = useMemo(() => me?.role === "BUSINESS", [me]);
 
@@ -85,6 +87,11 @@ export default function MyAppointmentsPage() {
   const canReschedule = isClient; // spec: only CLIENT can reschedule
   const canCancel = isClient || isBusiness; // UX: allow BUSINESS to cancel own appointments too
 
+  const nowMs = Date.now();
+  const activeItems = items.filter((a) => Date.parse(a.startAt) >= nowMs);
+  const archiveItems = items.filter((a) => Date.parse(a.startAt) < nowMs);
+  const visibleItems = view === "active" ? activeItems : archiveItems;
+
   return (
     <div className="grid gap-6">
       <section className="rounded-2xl border border-gray-800 bg-gray-900/30 p-5">
@@ -99,6 +106,34 @@ export default function MyAppointmentsPage() {
             Signed in as: <span className="font-semibold">{me.name}</span> ({me.role})
           </div>
         ) : null}
+
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setView("active")}
+            className={
+              (view === "active"
+                ? "bg-indigo-600 text-white border-indigo-700"
+                : "bg-white text-gray-900 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-700") +
+              " rounded-xl border px-3 py-1.5 text-sm font-medium cursor-pointer"
+            }
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("archive")}
+            className={
+              (view === "archive"
+                ? "bg-indigo-600 text-white border-indigo-700"
+                : "bg-white text-gray-900 border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 hover:text-indigo-700") +
+              " rounded-xl border px-3 py-1.5 text-sm font-medium cursor-pointer"
+            }
+          >
+            Archive
+          </button>
+        </div>
 
         {error ? (
           <div className="mt-4 rounded-xl border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{error}</div>
@@ -119,19 +154,24 @@ export default function MyAppointmentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {items.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-gray-600">
-                    No appointments yet. Go to{" "}
-                    <a href="/businesses" className="underline underline-offset-4">
-                      Businesses
-                    </a>
-                    .
-                  </td>
+                    {view === "active" ? (
+                      <>
+                        No active appointments. Go to{" "}
+                        <a href="/businesses" className="underline underline-offset-4">
+                          Businesses
+                        </a>
+                        .
+                      </>
+                    ) : (
+                      <>No past appointments.</>
+                    )}</td>
                 </tr>
               ) : null}
 
-              {items.map((a) => (
+              {visibleItems.map((a) => (
                 <AppointmentRow
                   key={a.id}
                   item={a}
@@ -139,6 +179,7 @@ export default function MyAppointmentsPage() {
                   canCancel={canCancel}
                   onCancel={cancel}
                   onReschedule={reschedule}
+                  readOnly={view === "archive"}
                 />
               ))}
             </tbody>
@@ -147,18 +188,23 @@ export default function MyAppointmentsPage() {
 
         {/* Mobile (<sm) card view */}
         <div className="bg-gray-950/10 sm:hidden">
-          {items.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <div className="px-4 py-6 text-sm text-gray-600">
-              No appointments yet. Go to{" "}
-              <a href="/businesses" className="underline underline-offset-4">
-                Businesses
-              </a>
-              .
-            </div>
+              {view === "active" ? (
+                      <>
+                        No active appointments. Go to{" "}
+                        <a href="/businesses" className="underline underline-offset-4">
+                          Businesses
+                        </a>
+                        .
+                      </>
+                    ) : (
+                      <>No past appointments.</>
+                    )}</div>
           ) : null}
 
           <div className="divide-y divide-gray-800">
-            {items.map((a) => (
+            {visibleItems.map((a) => (
               <AppointmentCard
                 key={a.id}
                 item={a}
@@ -166,6 +212,7 @@ export default function MyAppointmentsPage() {
                 canCancel={canCancel}
                 onCancel={cancel}
                 onReschedule={reschedule}
+                  readOnly={view === "archive"}
               />
             ))}
           </div>
@@ -180,13 +227,15 @@ function AppointmentRow({
   canReschedule,
   canCancel,
   onCancel,
-  onReschedule
+  onReschedule,
+  readOnly
 }: {
   item: Appointment;
   canReschedule: boolean;
   canCancel: boolean;
   onCancel: (id: string) => Promise<void>;
   onReschedule: (id: string, localStart: string, durationMin: number) => Promise<void>;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [localStart, setLocalStart] = useState(toLocalInputValue(item.startAt));
@@ -274,7 +323,7 @@ function AppointmentRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          {canReschedule ? (
+          {readOnly ? null : (canReschedule ? (
             editing ? (
               <>
                 <button
@@ -327,7 +376,7 @@ function AppointmentRow({
             </button>
           ) : (
             <span className="text-xs text-gray-500">No actions</span>
-          )}
+          ))}
 
           {msg ? (
             <span className={msg.type === "ok" ? "text-xs text-emerald-300" : "text-xs text-red-300"}>{msg.text}</span>
@@ -343,13 +392,15 @@ function AppointmentCard({
   canReschedule,
   canCancel,
   onCancel,
-  onReschedule
+  onReschedule,
+  readOnly
 }: {
   item: Appointment;
   canReschedule: boolean;
   canCancel: boolean;
   onCancel: (id: string) => Promise<void>;
   onReschedule: (id: string, localStart: string, durationMin: number) => Promise<void>;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [localStart, setLocalStart] = useState(toLocalInputValue(item.startAt));
@@ -447,7 +498,7 @@ function AppointmentCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          {canReschedule ? (
+          {readOnly ? null : (canReschedule ? (
             editing ? (
               <>
                 <button
@@ -502,7 +553,7 @@ function AppointmentCard({
             </button>
           ) : (
             <span className="col-span-2 text-xs text-gray-500">No actions</span>
-          )}
+          ))}
 
           {msg ? (
             <div className="col-span-2">

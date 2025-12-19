@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireAuth";
 import { jsonError } from "@/lib/http/response";
 import { ApiError } from "@/lib/http/errors";
+import { PutAvailabilitySchema } from "@/lib/validation/availability";
 import {
   getAvailabilityOrDefault,
   upsertAvailability,
@@ -34,11 +35,15 @@ export async function PUT(req: Request) {
       throw new ApiError(400, "VALIDATION_ERROR", "Invalid JSON body");
     }
 
-    // Minimal validation: the service will enforce shape + time strings.
+    const parsed = PutAvailabilitySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ApiError(400, "VALIDATION_ERROR", "Invalid availability payload", parsed.error.flatten());
+    }
+
     const availability = await upsertAvailability(auth.userId, {
-      version: typeof body.version === "number" ? body.version : 1,
-      slotStepMin: typeof body.slotStepMin === "number" ? body.slotStepMin : 15,
-      days: (body as any).days,
+      version: 1,
+      slotStepMin: parsed.data.slotStepMin,
+      days: parsed.data.days,
     });
 
     return NextResponse.json({ availability });

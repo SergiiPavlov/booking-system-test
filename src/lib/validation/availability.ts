@@ -22,6 +22,8 @@ export const AvailabilityDaySchema = z.object({
 
 export const PutAvailabilitySchema = z.object({
   slotStepMin: z.number().int().min(5).max(120).default(15),
+  // Optional: used to persist BUSINESS timezone for slot generation and booking checks.
+  tzOffsetMin: z.coerce.number().int().min(-840).max(840).optional(),
   days: z.array(AvailabilityDaySchema).min(1)
 });
 
@@ -40,5 +42,6 @@ export const GetSlotsQuerySchema = z.object({
 export const AvailabilitySlotsQuerySchema = z.object({
   businessId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  durationMin: z.coerce.number().int().min(15).max(480)
+  durationMin: z.coerce.number().int().min(15).max(480),
+  tzOffsetMin: z.coerce.number().int().min(-840).max(840).optional()
 });

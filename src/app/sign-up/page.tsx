@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/lib/client/api";
+import { emitAuthChanged } from "@/lib/client/auth-events";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -24,8 +25,9 @@ export default function SignUpPage() {
     try {
       await api<SignUpResponse>("/api/auth/sign-up", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, role })
+        body: JSON.stringify({ name, email, password, role, tzOffsetMin: new Date().getTimezoneOffset() })
       });
+      emitAuthChanged();
       router.push("/businesses");
       router.refresh();
     } catch (err) {

@@ -11,7 +11,8 @@ export async function GET(request: Request) {
   const raw = {
     businessId: url.searchParams.get("businessId"),
     date: url.searchParams.get("date"),
-    durationMin: url.searchParams.get("durationMin") ? Number(url.searchParams.get("durationMin")) : undefined
+    durationMin: url.searchParams.get("durationMin") ? Number(url.searchParams.get("durationMin")) : undefined,
+    tzOffsetMin: url.searchParams.get("tzOffsetMin") ? Number(url.searchParams.get("tzOffsetMin")) : undefined
   };
 
   const parsed = AvailabilitySlotsQuerySchema.safeParse(raw);
@@ -19,6 +20,11 @@ export async function GET(request: Request) {
     return NextResponse.json(validationError(parsed.error.flatten()), { status: 400 });
   }
 
-  const slots = await getAvailableSlots(parsed.data);
-  return NextResponse.json({ slots });
+  try {
+    const slots = await getAvailableSlots(parsed.data);
+    return NextResponse.json({ slots });
+  } catch (e) {
+    // Keep error shape consistent with other API routes
+    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to get slots" } }, { status: 500 });
+  }
 }

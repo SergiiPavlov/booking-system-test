@@ -17,7 +17,8 @@ export async function POST(req: Request) {
       clientId: auth.userId,
       businessId: parsed.data.businessId,
       startAt: new Date(parsed.data.startAt),
-      durationMin: parsed.data.durationMin
+      durationMin: parsed.data.durationMin,
+      tzOffsetMin: parsed.data.tzOffsetMin ?? 0
     });
 
     return jsonCreated({ appointment: appt });

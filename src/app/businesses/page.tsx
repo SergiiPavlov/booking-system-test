@@ -43,7 +43,8 @@ function BusinessCard({ b }: { b: Business }) {
       const res = await getFreeSlots({
         businessId: b.id,
         date,
-        durationMin
+        durationMin,
+        tzOffsetMin: new Date().getTimezoneOffset(),
       });
       setSlots(res.slots);
     } catch (e: any) {

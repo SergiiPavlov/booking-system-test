@@ -49,8 +49,9 @@ export async function createAppointment(opts: {
   businessId: string;
   startAt: Date;
   durationMin: number;
+  tzOffsetMin: number;
 }) {
-  const { clientId, businessId, startAt, durationMin } = opts;
+  const { clientId, businessId, startAt, durationMin, tzOffsetMin } = opts;
 
   if (!startAt || Number.isNaN(startAt.getTime())) {
     throw new ApiError(400, "VALIDATION_ERROR", "startAt is invalid");
@@ -68,17 +69,22 @@ export async function createAppointment(opts: {
   if (durationMin > MAX_DURATION_MIN)
     throw new ApiError(400, "VALIDATION_ERROR", `durationMin must be <= ${MAX_DURATION_MIN}`);
 
-  const withinAvailability = await isWithinAvailability({ businessId, startAt, durationMin });
+  const withinAvailability = await isWithinAvailability({
+    businessId,
+    startAt,
+    durationMin,
+    tzOffsetMin
+  });
   if (!withinAvailability) {
     throw new ApiError(409, "CONFLICT", "Time slot is outside business availability");
   }
 
   return prisma.$transaction(async (tx) => {
-    const overlaps = await tx.appointment.findFirst({
+    const candidates = await tx.appointment.findMany({
       where: {
         businessId,
         status: AppointmentStatus.BOOKED,
-        // Narrow DB filter (the precise overlap check is done below)
+        // DB prefilter: any candidate that could overlap must start before newEnd
         startAt: {
           lt: addMinutes(startAt, durationMin)
         }
@@ -86,8 +92,8 @@ export async function createAppointment(opts: {
       orderBy: { startAt: "asc" }
     });
 
-    if (overlaps) {
-      if (isOverlapping(overlaps.startAt, overlaps.durationMin, startAt, durationMin)) {
+    for (const c of candidates) {
+      if (isOverlapping(c.startAt, c.durationMin, startAt, durationMin)) {
         throw new ApiError(409, "CONFLICT", "Time slot is already booked");
       }
     }

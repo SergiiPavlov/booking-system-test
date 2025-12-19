@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { api } from "@/lib/client/api";
+import { emitAuthChanged } from "@/lib/client/auth-events";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -28,6 +29,7 @@ function SignInForm() {
         method: "POST",
         body: JSON.stringify({ email, password })
       });
+      emitAuthChanged();
       router.push(next);
       router.refresh();
     } catch (err) {
@@ -87,8 +89,8 @@ function SignInForm() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900/30 p-4 text-xs text-gray-400">
-        <div className="font-semibold text-slate-800">Seeded users</div>
+      <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-900/30 p-4 text-xs text-gray-200">
+        <div className="font-semibold text-gray-100">Seeded users</div>
         <ul className="mt-2 grid gap-1">
           <li>client1@example.com / Password123!</li>
           <li>client2@example.com / Password123!</li>
