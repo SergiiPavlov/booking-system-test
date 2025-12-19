@@ -47,11 +47,18 @@ async function ensureDefaultAvailabilityForBusiness(businessId: string) {
 
 async function main() {
   const passwordHash = await bcrypt.hash('Password123!', 10);
+  const adminPasswordHash = await bcrypt.hash('Admin123!', 10);
 
   const users = await Promise.all([
     prisma.user.upsert({
       where: { email: 'client1@example.com' },
-      update: {},
+      // Make seed deterministic even if the user already exists.
+      // Ensures demo logins always work after re-seeding.
+      update: {
+        role: UserRole.CLIENT,
+        name: 'Client One',
+        passwordHash,
+      },
       create: {
         role: UserRole.CLIENT,
         name: 'Client One',
@@ -60,8 +67,26 @@ async function main() {
       },
     }),
     prisma.user.upsert({
+      where: { email: 'client2@example.com' },
+      update: {
+        role: UserRole.CLIENT,
+        name: 'Client Two',
+        passwordHash,
+      },
+      create: {
+        role: UserRole.CLIENT,
+        name: 'Client Two',
+        email: 'client2@example.com',
+        passwordHash,
+      },
+    }),
+    prisma.user.upsert({
       where: { email: 'biz1@example.com' },
-      update: {},
+      update: {
+        role: UserRole.BUSINESS,
+        name: 'Business One',
+        passwordHash,
+      },
       create: {
         role: UserRole.BUSINESS,
         name: 'Business One',
@@ -71,12 +96,32 @@ async function main() {
     }),
     prisma.user.upsert({
       where: { email: 'biz2@example.com' },
-      update: {},
+      update: {
+        role: UserRole.BUSINESS,
+        name: 'Business Two',
+        passwordHash,
+      },
       create: {
         role: UserRole.BUSINESS,
         name: 'Business Two',
         email: 'biz2@example.com',
         passwordHash,
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: 'admin@example.com' },
+      // If someone accidentally registered with this email as CLIENT/BUSINESS,
+      // we still want the demo admin credentials to be corrected by seeding.
+      update: {
+        role: UserRole.ADMIN,
+        name: 'Admin',
+        passwordHash: adminPasswordHash,
+      },
+      create: {
+        role: UserRole.ADMIN,
+        name: 'Admin',
+        email: 'admin@example.com',
+        passwordHash: adminPasswordHash,
       },
     }),
   ]);

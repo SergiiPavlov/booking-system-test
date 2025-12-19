@@ -46,7 +46,10 @@ Open: http://localhost:3000
 Seed creates:
 
 - CLIENT: `client1@example.com` / `Password123!`
+- CLIENT: `client2@example.com` / `Password123!`
+- BUSINESS: `biz1@example.com` / `Password123!`
 - BUSINESS: `biz2@example.com` / `Password123!`
+- ADMIN: `admin@example.com` / `Admin123!`
 
 ---
 

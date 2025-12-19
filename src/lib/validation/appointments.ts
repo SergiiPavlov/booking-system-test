@@ -12,5 +12,7 @@ export const createAppointmentSchema = z.object({
 
 export const rescheduleAppointmentSchema = z.object({
   startAt: isoDateTime.optional(),
-  durationMin: z.number().int().min(15).max(240).optional()
+  durationMin: z.number().int().min(15).max(240).optional(),
+  // JS Date.getTimezoneOffset() semantics (UTC - local), minutes
+  tzOffsetMin: z.number().int().min(-14 * 60).max(14 * 60).optional()
 });

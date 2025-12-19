@@ -20,7 +20,7 @@ export async function signIn(email: string, password: string) {
 
   const payload: JwtPayload = {
     userId: user.id,
-    role: user.role === "BUSINESS" ? "BUSINESS" : "CLIENT"
+    role: user.role === "ADMIN" ? "ADMIN" : user.role === "BUSINESS" ? "BUSINESS" : "CLIENT"
   };
 
   const token = signToken(payload);

@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 
 import { AUTH_CHANGED_EVENT } from '@/lib/client/auth-events';
 
-type Me = { user: { id: string; role: 'CLIENT' | 'BUSINESS'; name: string; email: string } | null };
+type Me = { user: { id: string; role: 'CLIENT' | 'BUSINESS' | 'ADMIN'; name: string; email: string } | null };
 
-type Role = 'CLIENT' | 'BUSINESS';
+type Role = 'CLIENT' | 'BUSINESS' | 'ADMIN';
 
 export function NavLinks() {
   // `user` в /api/auth/me может быть null — не используем Me['user']['role'] напрямую.
@@ -75,6 +75,12 @@ export function NavLinks() {
       {role === 'BUSINESS' && (
         <Link href="/availability" className="underline">
           Availability
+        </Link>
+      )}
+
+      {role === 'ADMIN' && (
+        <Link href="/users" className="underline">
+          Users
         </Link>
       )}
     </nav>

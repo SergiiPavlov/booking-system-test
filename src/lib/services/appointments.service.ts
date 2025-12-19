@@ -115,8 +115,9 @@ export async function rescheduleAppointment(opts: {
   user: { id: string; role: UserRole };
   startAt: Date;
   durationMin: number;
+  tzOffsetMin?: number;
 }) {
-  const { appointmentId, user, startAt, durationMin } = opts;
+  const { appointmentId, user, startAt, durationMin, tzOffsetMin } = opts;
 
   const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
   if (!appt) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
@@ -141,7 +142,12 @@ export async function rescheduleAppointment(opts: {
   if (durationMin > MAX_DURATION_MIN)
     throw new ApiError(400, "VALIDATION_ERROR", `durationMin must be <= ${MAX_DURATION_MIN}`);
 
-  const withinAvailability = await isWithinAvailability({ businessId: appt.businessId, startAt, durationMin });
+  const withinAvailability = await isWithinAvailability({
+    businessId: appt.businessId,
+    startAt,
+    durationMin,
+    tzOffsetMin
+  });
   if (!withinAvailability) {
     throw new ApiError(409, "CONFLICT", "Time slot is outside business availability");
   }

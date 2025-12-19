@@ -142,6 +142,19 @@ export async function signIn(input: { email: string; password: string }) {
   });
 }
 
+export async function signUp(input: {
+  name: string;
+  email: string;
+  password: string;
+  role: "CLIENT" | "BUSINESS";
+}) {
+  // Admin accounts are seeded; sign-up supports only CLIENT/BUSINESS.
+  return apiFetch<{ user: UserDto }>("/api/auth/sign-up", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function signOut() {
   return apiFetch<{ ok: true }>("/api/auth/sign-out", { method: "POST" });
 }
@@ -155,6 +168,40 @@ export async function getMe() {
 export async function getBusinesses() {
   // Route returns { users: [...] }
   return apiFetch<{ users: UserDto[] }>("/api/users?role=BUSINESS");
+}
+
+/* ----------------------------- Users ---------------------------- */
+
+export async function listUsers() {
+  return apiFetch<{ users: UserDto[] }>("/api/users");
+}
+
+export async function createUser(input: {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+}) {
+  return apiFetch<{ user: UserDto }>("/api/users", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateUser(id: string, input: {
+  name?: string;
+  email?: string;
+  password?: string;
+  role?: UserRole;
+}) {
+  return apiFetch<{ user: UserDto }>(`/api/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteUser(id: string) {
+  return apiFetch<{ ok: true }>(`/api/users/${id}`, { method: "DELETE" });
 }
 
 /* -------------------------- Appointments ------------------------- */
@@ -187,11 +234,17 @@ export async function cancelAppointment(id: string) {
 
 export async function rescheduleAppointment(
   id: string,
-  input: { startAt: string; durationMin: number }
+  input: { startAt: string; durationMin: number; tzOffsetMin?: number }
 ) {
   return apiFetch<{ appointment: Partial<AppointmentDto> }>(
     `/api/appointments/${id}`,
-    { method: "PATCH", body: JSON.stringify(input) }
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        ...input,
+        tzOffsetMin: input.tzOffsetMin ?? new Date().getTimezoneOffset()
+      })
+    }
   );
 }
 
@@ -230,9 +283,14 @@ export async function api<T>(input: string, init?: RequestInit): Promise<T> {
 
 export const clientApi = {
   signIn,
+  signUp,
   signOut,
   getMe,
   getBusinesses,
+  listUsers,
+  createUser,
+  updateUser,
+  deleteUser,
   createAppointment,
   listMyAppointments,
   cancelAppointment,

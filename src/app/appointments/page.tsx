@@ -74,9 +74,10 @@ export default function MyAppointmentsPage() {
 
   async function reschedule(id: string, localStart: string, durationMin: number) {
     const startAt = toIsoUtcFromLocalDateTime(localStart);
+    const tzOffsetMin = new Date().getTimezoneOffset();
     await api<PatchAppointmentResponse>(`/api/appointments/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ startAt, durationMin })
+      body: JSON.stringify({ startAt, durationMin, tzOffsetMin })
     });
     await load();
     router.refresh();
