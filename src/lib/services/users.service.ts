@@ -8,6 +8,7 @@ export async function createUser(input: {
   email: string;
   password: string;
   role: "CLIENT" | "BUSINESS" | "ADMIN";
+  tzOffsetMin?: number;
 }) {
   const passwordHash = await hashPassword(input.password.trim());
   try {
@@ -21,7 +22,10 @@ export async function createUser(input: {
             : input.role === "BUSINESS"
               ? UserRole.BUSINESS
               : UserRole.CLIENT,
-        passwordHash
+        passwordHash,
+        // Persist timezone (mainly relevant for BUSINESS availability calculations).
+        timezoneOffsetMin:
+          typeof input.tzOffsetMin === "number" && Number.isFinite(input.tzOffsetMin) ? Math.trunc(input.tzOffsetMin) : 0
       },
       select: { id: true, name: true, email: true, role: true, createdAt: true, updatedAt: true }
     });

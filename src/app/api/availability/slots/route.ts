@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireAuth";
-import { validationError } from "@/lib/http/errors";
+import { jsonError, jsonOk, validationError } from "@/lib/http/response";
 import { AvailabilitySlotsQuerySchema } from "@/lib/validation/availability";
 import { getAvailableSlots } from "@/lib/services/availability.service";
 
 export async function GET(request: Request) {
-  await requireAuth(); // any authenticated user
+  try {
+    await requireAuth(); // any authenticated user
+  } catch (e) {
+    return jsonError(e);
+  }
 
   const url = new URL(request.url);
   const raw = {
@@ -17,14 +20,13 @@ export async function GET(request: Request) {
 
   const parsed = AvailabilitySlotsQuerySchema.safeParse(raw);
   if (!parsed.success) {
-    return NextResponse.json(validationError(parsed.error.flatten()), { status: 400 });
+    return jsonError(validationError(parsed.error.flatten()));
   }
 
   try {
     const slots = await getAvailableSlots(parsed.data);
-    return NextResponse.json({ slots });
+    return jsonOk({ slots });
   } catch (e) {
-    // Keep error shape consistent with other API routes
-    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Failed to get slots" } }, { status: 500 });
+    return jsonError(e);
   }
 }

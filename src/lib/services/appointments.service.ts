@@ -134,6 +134,11 @@ export async function rescheduleAppointment(opts: {
     throw new ApiError(400, "VALIDATION_ERROR", "startAt is invalid");
   }
 
+  // Keep behavior consistent with createAppointment: reschedule must also be in the future.
+  if (isBefore(startAt, new Date())) {
+    throw new ApiError(400, "VALIDATION_ERROR", "startAt must be in the future");
+  }
+
   if (!Number.isInteger(durationMin)) {
     throw new ApiError(400, "VALIDATION_ERROR", "durationMin must be an integer");
   }
@@ -185,21 +190,23 @@ export async function cancelAppointment(opts: { appointmentId: string; user: { i
   const appt = await prisma.appointment.findUnique({ where: { id: appointmentId } });
   if (!appt) throw new ApiError(404, "NOT_FOUND", "Appointment not found");
 
-  if (appt.status !== AppointmentStatus.BOOKED) {
-    // idempotent-ish
-    return prisma.appointment.update({
-      where: { id: appt.id },
-      data: { status: AppointmentStatus.CANCELED, updatedAt: new Date() }
-    });
-  }
-
-  // CLIENT can cancel only own; BUSINESS can cancel only own business
+  // IMPORTANT: enforce authorization BEFORE any status-based shortcuts.
+  // CLIENT can cancel only own; BUSINESS can cancel only own business; ADMIN can cancel any.
   const allowed =
+    user.role === UserRole.ADMIN ||
     (user.role === UserRole.CLIENT && appt.clientId === user.id) ||
     (user.role === UserRole.BUSINESS && appt.businessId === user.id);
 
   if (!allowed) {
     throw new ApiError(403, "FORBIDDEN", "You can cancel only your own appointments");
+  }
+
+  // For non-BOOKED statuses we keep the operation idempotent-ish but still authorized.
+  if (appt.status !== AppointmentStatus.BOOKED) {
+    return prisma.appointment.update({
+      where: { id: appt.id },
+      data: { status: AppointmentStatus.CANCELED, updatedAt: new Date() }
+    });
   }
 
   return prisma.appointment.update({

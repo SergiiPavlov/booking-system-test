@@ -56,32 +56,81 @@ export function NavLinks() {
   // - Availability — только для BUSINESS
   const isAuthed = loaded && role !== null;
 
+  const [open, setOpen] = useState(false);
+
+  const links: Array<{ href: string; label: string; show: boolean }> = [
+    { href: '/', label: 'Home', show: true },
+    { href: '/businesses', label: 'Businesses', show: true },
+    { href: '/appointments', label: 'My appointments', show: isAuthed },
+    { href: '/availability', label: 'Availability', show: role === 'BUSINESS' },
+    { href: '/users', label: 'Users', show: role === 'ADMIN' },
+  ];
+
+  const visibleLinks = links.filter((l) => l.show);
+
+  const close = () => setOpen(false);
+
   return (
-    <nav className="flex items-center gap-4">
-      <Link href="/" className="underline">
-        Home
-      </Link>
+    <nav className="relative">
+      {/* Desktop */}
+      <div className="hidden items-center gap-4 md:flex">
+        {visibleLinks.map((l) => (
+          <Link key={l.href} href={l.href} className="underline">
+            {l.label}
+          </Link>
+        ))}
+      </div>
 
-      <Link href="/businesses" className="underline">
-        Businesses
-      </Link>
+      {/* Mobile: burger + dropdown */}
+      <div className="flex items-center gap-3 md:hidden">
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50"
+          aria-expanded={open}
+          aria-controls="nav-menu"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 6h16" />
+            <path d="M4 12h16" />
+            <path d="M4 18h16" />
+          </svg>
+          Menu
+        </button>
 
-      {isAuthed && (
-        <Link href="/appointments" className="underline">
-          My appointments
+        {/* quick access (optional): show 1-2 top links even when menu closed */}
+        <Link href="/" className="text-sm font-medium underline" onClick={close}>
+          Home
         </Link>
-      )}
+      </div>
 
-      {role === 'BUSINESS' && (
-        <Link href="/availability" className="underline">
-          Availability
-        </Link>
-      )}
-
-      {role === 'ADMIN' && (
-        <Link href="/users" className="underline">
-          Users
-        </Link>
+      {open && (
+        <div
+          id="nav-menu"
+          className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-lg border bg-white shadow-lg"
+        >
+          <div className="flex flex-col p-2">
+            {visibleLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-md px-3 py-2 text-sm text-gray-900 hover:bg-gray-50"
+                onClick={close}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
     </nav>
   );

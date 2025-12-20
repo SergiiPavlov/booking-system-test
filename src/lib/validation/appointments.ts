@@ -11,8 +11,11 @@ export const createAppointmentSchema = z.object({
 });
 
 export const rescheduleAppointmentSchema = z.object({
-  startAt: isoDateTime.optional(),
-  durationMin: z.number().int().min(15).max(240).optional(),
+  // Contract: reschedule requires both startAt and durationMin.
+  // If we ever want true PATCH semantics, we must change the service to
+  // read missing fields from the existing appointment.
+  startAt: isoDateTime,
+  durationMin: z.number().int().min(15).max(240),
   // JS Date.getTimezoneOffset() semantics (UTC - local), minutes
   tzOffsetMin: z.number().int().min(-14 * 60).max(14 * 60).optional()
 });
