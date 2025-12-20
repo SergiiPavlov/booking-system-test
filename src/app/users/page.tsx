@@ -153,53 +153,91 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="card" style={{ overflowX: "auto" }}>
-        <table className="table" style={{ minWidth: 720 }}>
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Name</th>
-              <th>Role</th>
-              <th style={{ width: 1, whiteSpace: "nowrap" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((u) => (
-              <tr key={u.id}>
-                <td>{u.email}</td>
-                <td>{u.name}</td>
-                <td>{u.role}</td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() =>
-                      setEditing({
-                        id: u.id,
-                        name: u.name,
-                        email: u.email,
-                        role: u.role,
-                        password: "",
-                      })
-                    }
-                    disabled={loading}
-                  >
-                    Edit
-                  </button>{" "}
-                  <button className="btn btn-danger" onClick={() => void onDelete(u.id)} disabled={loading}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {sorted.length === 0 && (
+      {/* Mobile: cards (table columns do not fit) */}
+      <div className="only-mobile">
+        <div className="grid" style={{ gap: 10 }}>
+          {sorted.map((u) => (
+            <div key={u.id} className="card" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 600, wordBreak: "break-word" }}>{u.email}</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                {u.name} · {u.role}
+              </div>
+              <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() =>
+                    setEditing({
+                      id: u.id,
+                      name: u.name,
+                      email: u.email,
+                      role: u.role,
+                      password: "",
+                    })
+                  }
+                  disabled={loading}
+                >
+                  Edit
+                </button>
+                <button className="btn btn-danger" onClick={() => void onDelete(u.id)} disabled={loading}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {sorted.length === 0 && <div className="card muted">{loading ? "Loading..." : "No users"}</div>}
+        </div>
+      </div>
+
+      {/* Desktop: table */}
+      <div className="only-desktop">
+        <div className="card" style={{ overflowX: "auto" }}>
+          <table className="table" style={{ minWidth: 720 }}>
+            <thead>
               <tr>
-                <td colSpan={4} className="muted">
-                  {loading ? "Loading..." : "No users"}
-                </td>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th style={{ width: 1, whiteSpace: "nowrap" }}>Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sorted.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.email}</td>
+                  <td>{u.name}</td>
+                  <td>{u.role}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() =>
+                        setEditing({
+                          id: u.id,
+                          name: u.name,
+                          email: u.email,
+                          role: u.role,
+                          password: "",
+                        })
+                      }
+                      disabled={loading}
+                    >
+                      Edit
+                    </button>{" "}
+                    <button className="btn btn-danger" onClick={() => void onDelete(u.id)} disabled={loading}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="muted">
+                    {loading ? "Loading..." : "No users"}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {(editing || creating) && (

@@ -17,7 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-gray-50 text-gray-900">
         <header className="border-b bg-white">
-          <div className="mx-auto flex max-w-4xl items-center justify-between p-4">
+          <div className="mx-auto flex max-w-4xl flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
             <NavLinks />
             <AuthStatus />
           </div>
