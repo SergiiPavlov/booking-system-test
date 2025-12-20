@@ -1,12 +1,17 @@
-# Booking System (Day 2+)
+# Booking System (Test task)
 
-This repo is a small demo booking system:
-- Roles: **CLIENT** and **BUSINESS**
-- Auth: email/password -> HttpOnly cookie `bs_token`
+Small demo booking system built for a Full‑Stack test task.
+
+What’s implemented:
+- Users with roles: **CLIENT**, **BUSINESS**, **ADMIN**
+- Auth: email/password → HttpOnly cookie `bs_token`
+- Users management:
+  - ADMIN can view the Users page and manage users via API
+  - CLIENT/BUSINESS can access only their allowed data
 - Appointments: create / list / reschedule / cancel
-- **Availability + Free slots (Day 3)**: BUSINESS defines working hours & breaks; CLIENT books from a list of free slots
+- Availability + Free slots: BUSINESS defines working hours & breaks; CLIENT books from a list of free slots
 
-## Quick start (3 minutes)
+## Quick start (local, 3–5 minutes)
 
 1) Install dependencies
 
@@ -31,6 +36,8 @@ npx prisma migrate dev
 npx prisma db seed
 ```
 
+Note: for deployment environments (Render/Railway/Vercel) use `npx prisma migrate deploy` instead of `migrate dev`.
+
 4) Run dev server
 
 ```bash
@@ -38,6 +45,11 @@ npm run dev
 ```
 
 Open: http://localhost:3000
+
+### Demo pages
+- Sign in page: `/sign-in`
+- Users page (ADMIN): `/users`
+- Appointments page: `/appointments`
 
 ---
 
@@ -50,6 +62,12 @@ Seed creates:
 - BUSINESS: `biz1@example.com` / `Password123!`
 - BUSINESS: `biz2@example.com` / `Password123!`
 - ADMIN: `admin@example.com` / `Admin123!`
+
+If you re-run seed and admin login stops working, run:
+
+```bash
+node scripts/reset-admin.cjs
+```
 
 ---
 
@@ -136,4 +154,35 @@ curl -i -b bizcookies.txt -X PUT http://localhost:3000/api/availability/me \
 ## Notes
 
 - Slots are generated from BUSINESS working hours and breaks, and exclude already **BOOKED** appointments.
-- Server still enforces conflicts and will return **409** in case of a race (another appointment booked the slot).
+- Server enforces overlap checks and returns **409** for conflicts.
+
+---
+
+## Deploy (Render/Railway/Vercel)
+
+This project is intended to be deployed. Minimal requirements for a successful deploy:
+
+1) Set environment variables on the platform:
+- `DATABASE_URL`
+- `DIRECT_URL` (optional, depending on provider)
+- `JWT_SECRET`
+
+2) Build:
+
+```bash
+npm ci
+npm run build
+```
+
+3) Apply migrations on the deployed database:
+
+```bash
+npx prisma migrate deploy
+```
+
+4) (Optional) Seed demo users:
+
+```bash
+npx prisma db seed
+```
+

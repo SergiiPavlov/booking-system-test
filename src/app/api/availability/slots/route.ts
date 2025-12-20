@@ -2,6 +2,7 @@ import { requireAuth } from "@/lib/auth/requireAuth";
 import { jsonError, jsonOk, validationError } from "@/lib/http/response";
 import { AvailabilitySlotsQuerySchema } from "@/lib/validation/availability";
 import { getAvailableSlots } from "@/lib/services/availability.service";
+import { getUserTimezoneOffsetMin } from "@/lib/services/users.service";
 
 export async function GET(request: Request) {
   try {
@@ -24,7 +25,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const slots = await getAvailableSlots(parsed.data);
+    // Do NOT trust tzOffsetMin provided by client.
+    // Slots/availability should be computed using the business' timezone offset stored on server.
+    const businessTzOffsetMin = await getUserTimezoneOffsetMin(parsed.data.businessId);
+    const slots = await getAvailableSlots({ ...parsed.data, tzOffsetMin: businessTzOffsetMin });
     return jsonOk({ slots });
   } catch (e) {
     return jsonError(e);

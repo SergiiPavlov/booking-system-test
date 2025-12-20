@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { randomUUID } from 'node:crypto';
 
 export type WeeklyAvailability = {
   slotStepMin: number;
@@ -136,7 +137,7 @@ export async function setAvailabilityForBusiness(
       await tx.businessWorkingHour.upsert({
         where: { businessId_dayOfWeek: { businessId, dayOfWeek: d.dayOfWeek } },
         create: {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           businessId,
           dayOfWeek: d.dayOfWeek,
           startMin: d.startMin,
@@ -153,7 +154,7 @@ export async function setAvailabilityForBusiness(
     await tx.businessBreak.deleteMany({ where: { businessId } });
     const breakRows = normalized.flatMap((d) =>
       d.breaks.map((b) => ({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         businessId,
         dayOfWeek: d.dayOfWeek,
         startMin: b.startMin,

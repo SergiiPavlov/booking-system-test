@@ -88,3 +88,17 @@ export async function updateUser(
 export async function deleteUser(id: string) {
   await prisma.user.delete({ where: { id } });
 }
+
+/**
+ * Server-side source of truth for timezone offset.
+ *
+ * We intentionally do NOT trust tzOffsetMin coming from the client when we
+ * validate availability / generate slots. The client's offset can be spoofed.
+ */
+export async function getUserTimezoneOffsetMin(userId: string): Promise<number> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { timezoneOffsetMin: true }
+  });
+  return typeof u?.timezoneOffsetMin === "number" && Number.isFinite(u.timezoneOffsetMin) ? u.timezoneOffsetMin : 0;
+}
